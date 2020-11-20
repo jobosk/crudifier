@@ -1,7 +1,7 @@
 package com.jobosk.crudifier.constant;
 
 
-public class Constant {
+public class CrudConstant {
 
     public abstract class Http {
 
