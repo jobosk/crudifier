@@ -86,15 +86,24 @@ public abstract class CrudController<Entity> {
         if (list.length == 0) {
             return null;
         }
-        Sort result = Sort.by(getSortDirection(list[0]), list[0]);
+        Sort result = getDirectionSort(list[0]);
         for (int i = 1; i < list.length; i++) {
-            result = result.and(Sort.by(getSortDirection(list[i]), list[i]));
+            result = result.and(getDirectionSort(list[i]));
         }
         return result;
     }
 
-    private Sort.Direction getSortDirection(final String sort) {
-        return (sort != null && sort.charAt(0) == '-' ? Sort.Direction.DESC : Sort.Direction.ASC);
+    private Sort getDirectionSort(final String value) {
+        final boolean isDesc;
+        final String sort;
+        if (value != null && value.charAt(0) == '-') {
+            isDesc = true;
+            sort = value.substring(1);
+        } else {
+            isDesc = false;
+            sort = value;
+        }
+        return Sort.by((isDesc ? Sort.Direction.DESC : Sort.Direction.ASC), sort);
     }
 
     @PostMapping
