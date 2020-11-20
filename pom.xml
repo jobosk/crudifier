@@ -15,6 +15,13 @@
         <version>2.3.0.RELEASE</version>
     </parent>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -36,6 +43,11 @@
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.jobosk</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.11-fix_2791</version>
         </dependency>
     </dependencies>
 
