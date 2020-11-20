@@ -1,6 +1,6 @@
 package com.jobosk.crudifier.controller;
 
-import com.jobosk.crudifier.constant.Constant;
+import com.jobosk.crudifier.constant.CrudConstant;
 import com.jobosk.crudifier.service.ICrudService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -69,8 +69,8 @@ public abstract class CrudController<Entity> {
         if (page != null && size != null) {
             final Pageable pageRequest = sort != null ? PageRequest.of(page, size, sort) : PageRequest.of(page, size);
             Page<Entity> pagedResult = service.find(entity, pageRequest);
-            response.addHeader(Constant.Http.Header.TOTAL_COUNT, String.valueOf(pagedResult.getTotalElements()));
-            response.addHeader(Constant.Http.Header.EXPOSE_HEADER, Constant.Http.Header.TOTAL_COUNT);
+            response.addHeader(CrudConstant.Http.Header.TOTAL_COUNT, String.valueOf(pagedResult.getTotalElements()));
+            response.addHeader(CrudConstant.Http.Header.EXPOSE_HEADER, CrudConstant.Http.Header.TOTAL_COUNT);
             result = pagedResult.getContent();
         } else {
             result = sort != null ? service.find(entity, sort) : service.find(entity);
@@ -103,20 +103,20 @@ public abstract class CrudController<Entity> {
         return service.create(entity);
     }
 
-    @PutMapping(path = "{" + Constant.Http.Param.ID + "}")
+    @PutMapping(path = "{" + CrudConstant.Http.Param.ID + "}")
     public @ResponseBody
-    Entity update(@PathVariable(value = Constant.Http.Param.ID) final UUID id, @RequestBody final Map<String, Object> fields) {
+    Entity update(@PathVariable(value = CrudConstant.Http.Param.ID) final UUID id, @RequestBody final Map<String, Object> fields) {
         return service.update(id, fields);
     }
 
-    @DeleteMapping(path = "{" + Constant.Http.Param.ID + "}")
-    public void delete(@PathVariable(value = Constant.Http.Param.ID) final UUID id) {
+    @DeleteMapping(path = "{" + CrudConstant.Http.Param.ID + "}")
+    public void delete(@PathVariable(value = CrudConstant.Http.Param.ID) final UUID id) {
         service.delete(id);
     }
 
-    @GetMapping(path = "{" + Constant.Http.Param.ID + "}")
+    @GetMapping(path = "{" + CrudConstant.Http.Param.ID + "}")
     public @ResponseBody
-    Entity findOne(@PathVariable(Constant.Http.Param.ID) final UUID id) {
+    Entity findOne(@PathVariable(CrudConstant.Http.Param.ID) final UUID id) {
         return service.find(id);
     }
 }
