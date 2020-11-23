@@ -6,8 +6,21 @@ in the design itself and removing the need of a graphical
 user interface or making queries the database to manipulate
 data, in early development stages.
 
+## Requirements
+
+This library is intended to be used using Spring Boot 2.3.0
+and JPA repositories.
+
 ## How to use
 
+- Add to POM:
+```
+<dependency>
+    <groupId>com.github.jobosk</groupId>
+    <artifactId>crudifier</artifactId>
+    <version>1.2</version>
+</dependency>
+```
 - Define your model entities
 - Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY>
 - Indicate ID resolver for each entity with:
@@ -128,3 +141,12 @@ Response:
     , "name": "present entity"
 }
 ```
+
+## Known bugs
+
+- Filtering by ID in the find all could result in a parsing exception.
+
+- Due to the way Jackson handles circular dependencies, serialization
+of two or more different entities poiting to the same sub-entity will
+result in the serialization of the sub-entity as an object in the first
+occurrence and as an ID the following ones.
