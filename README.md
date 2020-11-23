@@ -15,7 +15,7 @@ data, in early development stages.
         generator = ObjectIdGenerators.PropertyGenerator.class
         , property = "id"
         , scope = YOUR_ENTITY.class
-        , resolver = YOUR_ENTITYIdResolver.class
+        , resolver = YOUR_ENTITY_ID_RESOLVER.class
 )
 - Define repository interfaces extending: JpaRepository<YOUR_ENTITY, UUID>
 - Define service interfaces extending: ICrudService<YOUR_ENTITY>
