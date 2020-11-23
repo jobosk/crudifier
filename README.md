@@ -24,6 +24,8 @@ data, in early development stages.
 
 ## API
 
+This will enable the following API to interact with the model:
+
 ### Create test entity
 
 Request:
