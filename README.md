@@ -6,6 +6,29 @@ in the design itself and removing the need of a graphical
 user interface or making queries the database to manipulate
 data, in early development stages.
 
+## How to use
+
+- Define your model entities
+- Define ID resolvers extending:
+'''GenericIdResolver<YOUR_ENTITY>'''
+- Indicate ID resolver for each entity with:
+'''
+@JsonIdentityInfo(
+        generator = ObjectIdGenerators.PropertyGenerator.class
+        , property = "id"
+        , scope = YOUR_ENTITY.class
+        , resolver = YOUR_ENTITYIdResolver.class
+)
+'''
+- Define repository interfaces extending:
+'''JpaRepository<YOUR_ENTITY, UUID>'''
+- Define service interfaces extending:
+'''ICrudService<YOUR_ENTITY>'''
+- Define service implementations implementing them, and extending:
+'''CrudService<YOUR_ENTITY>'''
+- Define controllers extending:
+'''CrudController<TestEntity>'''
+
 ## API
 
 ### Create test entity
@@ -15,7 +38,7 @@ Request:
 POST /testentity
 ```
 {
-	"name": "new present test entity"
+	"name": "new test entity"
 }
 ```
 
@@ -25,7 +48,7 @@ Response:
 ```
 {
     "id": <UUID>
-    , "name": "new present test entity"
+    , "name": "new test entity"
 }
 ```
 
