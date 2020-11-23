@@ -11,29 +11,31 @@ data, in early development stages.
 - Define your model entities
 - Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY>
 - Indicate ID resolver for each entity with:
+```
 @JsonIdentityInfo(
         generator = ObjectIdGenerators.PropertyGenerator.class
         , property = "id"
         , scope = YOUR_ENTITY.class
         , resolver = YOUR_ENTITY_ID_RESOLVER.class
 )
+```
 - Define repository interfaces extending: JpaRepository<YOUR_ENTITY, UUID>
 - Define service interfaces extending: ICrudService<YOUR_ENTITY>
 - Define service implementations implementing them, and extending: CrudService<YOUR_ENTITY>
-- Define controllers extending: CrudController<YOUR_ENTITY>
+- Define controllers with a particular mapping, extending: CrudController<YOUR_ENTITY>
 
 ## API
 
 This will enable the following API to interact with the model:
 
-### Create test entity
+### Create entity
 
 Request:
 
-POST /testentity
+POST /<entity_mapping>
 ```
 {
-	"name": "new test entity"
+	"name": "new entity"
 }
 ```
 
@@ -43,18 +45,18 @@ Response:
 ```
 {
     "id": <UUID>
-    , "name": "new test entity"
+    , "name": "new entity"
 }
 ```
 
-### Update test entity
+### Update entity
 
 Request:
 
-PUT /testentity/<UUID>
+PUT /<entity_mapping>/<UUID>
 ```
 {
-    "name": "edited name of present test entity"
+    "name": "edited name of present entity"
 }
 ```
 
@@ -64,25 +66,25 @@ Response:
 ```
 {
     "id": <UUID>
-    , "name": "edited name of present test entity"
+    , "name": "edited name of present entity"
 }
 ```
 
-### Delete test entity
+### Delete entity
 
 Request:
 
-DELETE /testentity/<UUID>
+DELETE /<entity_mapping>/<UUID>
 
 Response:
 
 200
 
-### Find all test entity
+### Find all entity
 
 Request:
 
-GET /testentity[?\<filter>][&\<filter>...]
+GET /<entity_mapping>[?\<filter>][&\<filter>...]
 
 filter=
 - \<entity attribute>=\<value>
@@ -102,20 +104,20 @@ Response:
 [
     {
         "id": <UUID>
-        , "name": "first present test entity"
+        , "name": "first present entity"
     }
     , {
         "id": <UUID>
-        , "name": "second present test entity"
+        , "name": "second present entity"
     }
 ]
 ```
 
-### Find one test entity
+### Find one entity
 
 Request:
 
-GET /testentity/<UUID>
+GET /<entity_mapping>/<UUID>
 
 Response:
 
@@ -123,6 +125,6 @@ Response:
 ```
 {
     "id": <UUID>
-    , "name": "present test entity"
+    , "name": "present entity"
 }
 ```
