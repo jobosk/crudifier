@@ -9,25 +9,18 @@ data, in early development stages.
 ## How to use
 
 - Define your model entities
-- Define ID resolvers extending:
-'''GenericIdResolver<YOUR_ENTITY>'''
+- Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY>
 - Indicate ID resolver for each entity with:
-'''
 @JsonIdentityInfo(
         generator = ObjectIdGenerators.PropertyGenerator.class
         , property = "id"
         , scope = YOUR_ENTITY.class
         , resolver = YOUR_ENTITYIdResolver.class
 )
-'''
-- Define repository interfaces extending:
-'''JpaRepository<YOUR_ENTITY, UUID>'''
-- Define service interfaces extending:
-'''ICrudService<YOUR_ENTITY>'''
-- Define service implementations implementing them, and extending:
-'''CrudService<YOUR_ENTITY>'''
-- Define controllers extending:
-'''CrudController<TestEntity>'''
+- Define repository interfaces extending: JpaRepository<YOUR_ENTITY, UUID>
+- Define service interfaces extending: ICrudService<YOUR_ENTITY>
+- Define service implementations implementing them, and extending: CrudService<YOUR_ENTITY>
+- Define controllers extending: CrudController<TestEntity>
 
 ## API
 
