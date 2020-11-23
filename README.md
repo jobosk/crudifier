@@ -20,7 +20,7 @@ data, in early development stages.
 - Define repository interfaces extending: JpaRepository<YOUR_ENTITY, UUID>
 - Define service interfaces extending: ICrudService<YOUR_ENTITY>
 - Define service implementations implementing them, and extending: CrudService<YOUR_ENTITY>
-- Define controllers extending: CrudController<TestEntity>
+- Define controllers extending: CrudController<YOUR_ENTITY>
 
 ## API
 
