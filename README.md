@@ -22,7 +22,7 @@ and JPA repositories.
 </dependency>
 ```
 - Define your model entities
-- Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY>
+- Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY> (no extra logic required)
 - Indicate ID resolver for each entity with:
 ```
 @JsonIdentityInfo(
@@ -35,7 +35,14 @@ and JPA repositories.
 - Define repository interfaces extending: JpaRepository<YOUR_ENTITY, UUID>
 - Define service interfaces extending: ICrudService<YOUR_ENTITY>
 - Define service implementations implementing them, and extending: CrudService<YOUR_ENTITY>
-- Define controllers with a particular mapping, extending: CrudController<YOUR_ENTITY>
+- Declare public constructor for those services:
+```
+@Autowired
+public YOUR_ENTITY_SERVICE(final YOUR_ENTITY_REPOSITORY repository) {
+	super(repository);
+}
+```
+- Define controllers with a particular mapping, extending: CrudController<YOUR_ENTITY> (no extra logic required)
 
 ## API
 
