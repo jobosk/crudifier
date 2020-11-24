@@ -8,7 +8,7 @@ data, in early development stages.
 
 ## Requirements
 
-This library is intended to be used using Spring Boot 2.3.0
+This library is intended to be used using Spring Boot 2.3
 and JPA repositories.
 
 ## How to use
