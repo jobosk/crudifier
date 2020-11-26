@@ -44,6 +44,16 @@ public YOUR_ENTITY_SERVICE(final YOUR_ENTITY_REPOSITORY repository) {
 ```
 - Define controllers with a particular mapping, extending: CrudController<YOUR_ENTITY> (no extra logic required)
 
+- Add the following bean in any configuration class (to avoid Jackson bug describen below):
+```
+@Bean
+public Jackson2ObjectMapperBuilderCustomizer addCustomSerializationFeatures() {
+	return jacksonObjectMapperBuilder -> jacksonObjectMapperBuilder.featuresToEnable(
+		SerializationFeature.HANDLE_CIRCULAR_REFERENCE_INDIVIDUALLY_FOR_COLLECTIONS
+	);
+}
+```
+
 ## API
 
 This will enable the following API to interact with the model:
@@ -157,3 +167,22 @@ Response:
 of two or more different entities poiting to the same sub-entity will
 result in the serialization of the sub-entity as an object in the first
 occurrence and as an ID the following ones.
+
+### Known *fixed* bugs
+
+- There is a bug in the Jackson serializer mentioned in the following issue:
+
+https://github.com/FasterXML/jackson-databind/issues/2791
+
+The current fix for this bug relies in the presence of the following
+dependency (within the 'crudifier' library itself, **no need to add again**):
+```
+<dependency>
+    <groupId>com.github.jobosk</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.11-fix_2791</version>
+</dependency>
+```
+
+To make use of the bug-fixing "functionality", a Jackson configuration
+bean (indicated in the 'How to' section) is required.
