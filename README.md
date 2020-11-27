@@ -53,6 +53,17 @@ public Jackson2ObjectMapperBuilderCustomizer addCustomSerializationFeatures() {
 	);
 }
 ```
+**Note:** If the previous feature does not compile, it means that some other dependency
+(probably a Spring one, since it comes by default with it) has injected 'jackson-databind'
+as a transitive dependency (and it does not have the fix for the bug). This can be solved
+by adding the following dependency before any other that might add the one without the fix:
+```
+<dependency>
+    <groupId>com.github.jobosk</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.11-fix_2791</version>
+</dependency>
+```
 
 ## API
 
@@ -175,7 +186,9 @@ occurrence and as an ID the following ones.
 https://github.com/FasterXML/jackson-databind/issues/2791
 
 The current fix for this bug relies in the presence of the following
-dependency (within the 'crudifier' library itself, **no need to add again**):
+dependency (within the 'crudifier' library itself, **no need to add it
+again, unless some other dependency includes the one without the fix
+as a transitive dependency**):
 ```
 <dependency>
     <groupId>com.github.jobosk</groupId>
