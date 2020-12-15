@@ -53,6 +53,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
                 obj
                 , ExampleMatcher
                         .matching()
+                        .withIgnoreCase()
                         .withStringMatcher(ExampleMatcher.StringMatcher.CONTAINING)
         );
     }
