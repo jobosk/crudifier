@@ -1,6 +1,7 @@
 package com.jobosk.crudifier.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobosk.crudifier.supplier.GenericSupplier;
 import com.jobosk.crudifier.util.CopyUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
@@ -21,13 +22,28 @@ import java.util.UUID;
 public abstract class CrudService<Entity> implements ICrudService<Entity> {
 
     private final JpaRepository<Entity, UUID> repository;
+    private final GenericSupplier<Entity> supplierCreate;
+    private final GenericSupplier<Entity> supplierUpdate;
+    private final GenericSupplier<UUID> supplierDelete;
 
     @Autowired
     private ObjectMapper mapper;
     //protected DozerBeanMapper mapper;
 
-    public CrudService(final JpaRepository<Entity, UUID> repository) {
+    public CrudService(
+            final JpaRepository<Entity, UUID> repository
+            , final GenericSupplier<Entity> supplierCreate
+            , final GenericSupplier<Entity> supplierUpdate
+            , final GenericSupplier<UUID> supplierDelete
+    ) {
         this.repository = repository;
+        this.supplierCreate = supplierCreate;
+        this.supplierUpdate = supplierUpdate;
+        this.supplierDelete = supplierDelete;
+    }
+
+    public CrudService(final JpaRepository<Entity, UUID> repository) {
+        this(repository, null, null, null);
     }
 
     @Override
@@ -67,20 +83,31 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
     @Override
     @Transactional
     public Entity create(final Entity obj) {
-        return repository.save(obj);
+        final Entity result = repository.save(obj);
+        if (supplierCreate != null) {
+            supplierCreate.getProcessor().onNext(result);
+        }
+        return result;
     }
 
     @Override
     @Transactional
     public Entity update(final UUID id, final Map<String, Object> fields) {
-        Entity entity = repository.getOne(id);
+        final Entity entity = repository.getOne(id);
         CopyUtil.copyProperties(entity, fields, mapper);
-        return repository.save(entity);
+        final Entity result = repository.save(entity);
+        if (supplierUpdate != null) {
+            supplierUpdate.getProcessor().onNext(result);
+        }
+        return result;
     }
 
     @Override
     @Transactional
     public void delete(final UUID id) {
         repository.deleteById(id);
+        if (supplierDelete != null) {
+            supplierDelete.getProcessor().onNext(id);
+        }
     }
 }
