@@ -10,11 +10,11 @@ import java.util.UUID;
 
 public interface ICrudService<Entity> {
 
-    List<Entity> find(Entity obj);
+    List<Entity> find(Map<String, Object> filters);
 
-    List<Entity> find(Entity obj, Sort sort);
+    List<Entity> find(Map<String, Object> filters, Sort sort);
 
-    Page<Entity> find(Entity obj, Pageable pageable);
+    Page<Entity> find(Map<String, Object> filters, Pageable pageable);
 
     Entity find(UUID id);
 
