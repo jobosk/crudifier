@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.supplier.GenericSupplier;
 import com.jobosk.crudifier.util.CopyUtil;
+import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
+import javax.persistence.criteria.From;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.metamodel.Attribute;
@@ -85,6 +87,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
                 final Predicate predicate = buildPredicate(
                         builder
                         , root
+                        , root
                         , root.getModel()
                         , key
                         , value
@@ -97,8 +100,8 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
         };
     }
 
-    private Predicate buildPredicate(final CriteriaBuilder builder, final Path<?> path, final EntityType<?> entityType
-            , final String property, final Object value) {
+    private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
+            , final EntityType<?> entityType, final String property, final Object value) {
         if (value == null) {
             return null;
         }
@@ -119,8 +122,21 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
             final SingularAttribute<?, ?> singularAttribute = (SingularAttribute<?, ?>) attribute;
             return buildPredicate(
                     builder
+                    , from
                     , getSinglePath(path, singularAttribute)
                     , (EntityType<?>) singularAttribute.getType()
+                    , property.substring(index + 1)
+                    , value
+            );
+        }
+        if (attribute instanceof PluralAttribute) {
+            final PluralAttribute<?, ?, ?> pluralAttribute = (PluralAttribute<?, ?, ?>) attribute;
+            final ListAttributeJoin<?, ?> join = (ListAttributeJoin<?, ?>) from.join(pluralAttribute.getName());
+            return buildPredicate(
+                    builder
+                    , join
+                    , join
+                    , (EntityType<?>) join.getAttribute().getElementType()
                     , property.substring(index + 1)
                     , value
             );
