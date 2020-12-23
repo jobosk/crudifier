@@ -15,15 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.From;
+import javax.persistence.criteria.ListJoin;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.metamodel.Attribute;
 import javax.persistence.metamodel.EntityType;
-import javax.persistence.metamodel.PluralAttribute;
+import javax.persistence.metamodel.ListAttribute;
 import javax.persistence.metamodel.SingularAttribute;
 import javax.persistence.metamodel.Type;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -129,9 +129,9 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
                     , value
             );
         }
-        if (attribute instanceof PluralAttribute) {
-            final PluralAttribute<?, ?, ?> pluralAttribute = (PluralAttribute<?, ?, ?>) attribute;
-            final ListAttributeJoin<?, ?> join = (ListAttributeJoin<?, ?>) from.join(pluralAttribute.getName());
+        if (attribute instanceof ListAttribute) {
+            final ListAttribute<?, ?> listAttribute = (ListAttribute<?, ?>) attribute;
+            final ListAttributeJoin<?, ?> join = (ListAttributeJoin<?, ?>) getJoin(from, listAttribute);
             return buildPredicate(
                     builder
                     , join
@@ -183,8 +183,9 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
         return path.get((SingularAttribute<? super X, Y>) attribute);
     }
 
-    private <X, E, C extends Collection<E>> Expression<C> getPluralPath(final Path<X> path, final PluralAttribute<?, ?, ?> attribute) {
-        return path.get((PluralAttribute<X, C, E>) attribute);
+    @SuppressWarnings("unchecked")
+    private <X, Y, Z> ListJoin<X, Y> getJoin(final From<Z, X> from, final ListAttribute<?, ?> listAttribute) {
+        return from.join((ListAttribute<? super X, Y>) listAttribute);
     }
 
     @Override
