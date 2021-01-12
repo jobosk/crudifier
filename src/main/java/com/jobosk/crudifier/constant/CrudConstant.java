@@ -3,6 +3,10 @@ package com.jobosk.crudifier.constant;
 
 public class CrudConstant {
 
+    public enum TypeId {
+        LONG, UUID, STRING, INTEGER, OTHER
+    }
+
     public abstract class Http {
 
         public abstract class Param {

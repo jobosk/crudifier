@@ -1,6 +1,7 @@
 package com.jobosk.crudifier.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobosk.crudifier.constant.CrudConstant;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.supplier.GenericSupplier;
 import com.jobosk.crudifier.util.CopyUtil;
@@ -112,6 +113,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
                     builder
                     , getSinglePath(path, attribute)
                     , value
+                    , attribute.getType().getJavaType()
                     , attribute.isId()
             );
         }
@@ -154,15 +156,50 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
     }
 
     private Predicate getAttributeValue(final CriteriaBuilder builder, final Path<?> path
-            , final Object filterValue, final boolean isId) {
+            , final Object filterValue, final Class<?> attributeType, final boolean isId) {
         if ("_NULL_".equals(filterValue)) {
             return builder.isNull(path);
         } else if (filterValue instanceof Enum) {
             return buildEnumPredicate(path, builder, filterValue);
         } else if (isId) {
-            return builder.equal(path, filterValue);
+            return builder.equal(path, formatIdentifier(filterValue, attributeType));
         } else {
             return builder.like(getValue(path, builder), "%" + String.valueOf(filterValue).toUpperCase() + "%");
+        }
+    }
+
+    private Object formatIdentifier(final Object filterValue, final Class<?> attributeType) {
+        if (filterValue == null) {
+            return null;
+        }
+        if (attributeType != null && !attributeType.isInstance(filterValue)) {
+            final String value = filterValue.toString();
+            switch (getEnum(attributeType)) {
+                case UUID:
+                    return UUID.fromString(value);
+                case LONG:
+                    return Long.valueOf(value);
+                case INTEGER:
+                    return Integer.valueOf(value);
+                case STRING:
+                    return value;
+                default:
+            }
+        }
+        return filterValue;
+    }
+
+    private CrudConstant.TypeId getEnum(final Class<?> attributeType) {
+        if (attributeType == UUID.class) {
+            return CrudConstant.TypeId.UUID;
+        } else if (attributeType == Long.class) {
+            return CrudConstant.TypeId.LONG;
+        } else if (attributeType == String.class) {
+            return CrudConstant.TypeId.STRING;
+        } else if (attributeType == Integer.class) {
+            return CrudConstant.TypeId.INTEGER;
+        } else {
+            return CrudConstant.TypeId.OTHER;
         }
     }
 
