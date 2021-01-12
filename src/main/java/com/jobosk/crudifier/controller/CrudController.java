@@ -35,16 +35,27 @@ public abstract class CrudController<Entity> {
     ) {
         Collection<Entity> result;
         final Sort sort = getSort(getParameter(parameters, "order"));
-        final Object page = getParameter(parameters, "page");
-        final Object size = getParameter(parameters, "size");
-        if (page instanceof Integer && size instanceof Integer) {
-            final Pageable pageRequest = getPageRequest((Integer) page, (Integer) size, sort);
+        final Integer page = getInteger(getParameter(parameters, "page"));
+        final Integer size = getInteger(getParameter(parameters, "size"));
+        if (page != null && size != null) {
+            final Pageable pageRequest = getPageRequest(page, size, sort);
             Page<Entity> pagedResult = service.find(parameters, pageRequest);
             response.addHeader(CrudConstant.Http.Header.TOTAL_COUNT, String.valueOf(pagedResult.getTotalElements()));
             response.addHeader(CrudConstant.Http.Header.EXPOSE_HEADER, CrudConstant.Http.Header.TOTAL_COUNT);
             result = pagedResult.getContent();
         } else {
             result = sort != null ? service.find(parameters, sort) : service.find(parameters);
+        }
+        return result;
+    }
+
+    private Integer getInteger(final Object value) {
+        Integer result;
+        try {
+            result = Integer.valueOf(value.toString());
+        } catch (final Exception e) {
+            // TODO Log error
+            result = null;
         }
         return result;
     }
