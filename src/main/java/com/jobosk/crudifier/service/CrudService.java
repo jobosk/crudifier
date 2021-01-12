@@ -243,6 +243,10 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
     public Entity update(final UUID id, final Map<String, Object> fields) {
         final Entity entity = repository.getOne(id);
         CopyUtil.copyProperties(entity, fields, mapper);
+        return update(entity);
+    }
+
+    protected Entity update(final Entity entity) {
         final Entity result = repository.save(entity);
         if (supplierUpdate != null) {
             supplierUpdate.getProcessor().onNext(result);
