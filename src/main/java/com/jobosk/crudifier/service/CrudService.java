@@ -102,19 +102,18 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
     }
 
     private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
-            , final EntityType<?> entityType, final String property, final Object value) {
-        if (value == null) {
+            , final EntityType<?> entityType, final String property, final Object filterValue) {
+        if (filterValue == null) {
             return null;
         }
         final int index = property != null ? property.indexOf(SEPARATOR) : -1;
         if (index == -1) {
-            final SingularAttribute<?, ?> attribute = getSingularAttribute(entityType, property);
             return getAttributeValue(
                     builder
-                    , getSinglePath(path, attribute)
-                    , value
-                    , attribute.getType().getJavaType()
-                    , attribute.isId()
+                    , path
+                    , entityType
+                    , property
+                    , filterValue
             );
         }
         Attribute<?, ?> attribute = entityType.getAttribute(
@@ -128,7 +127,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
                     , getSinglePath(path, singularAttribute)
                     , (EntityType<?>) singularAttribute.getType()
                     , property.substring(index + 1)
-                    , value
+                    , filterValue
             );
         }
         if (attribute instanceof ListAttribute) {
@@ -140,53 +139,51 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
                     , join
                     , (EntityType<?>) join.getAttribute().getElementType()
                     , property.substring(index + 1)
-                    , value
+                    , filterValue
             );
         }
         return null;
     }
 
-    private SingularAttribute<?, ?> getSingularAttribute(final EntityType<?> entityType, final String property) {
+    private Predicate getAttributeValue(final CriteriaBuilder builder, final Path<?> path
+            , final EntityType<?> entityType, final String property, final Object value) {
         SingularAttribute<?, ?> attribute = entityType.getSingularAttribute(property);
+        Path<?> valuePath = getSinglePath(path, attribute);
         final Type<?> attributeType = attribute.getType();
         if (attributeType instanceof EntityType) {
             attribute = ((EntityType<?>) attributeType).getDeclaredSingularAttribute(ID);
+            valuePath = getSinglePath(valuePath, attribute);
         }
-        return attribute;
-    }
-
-    private Predicate getAttributeValue(final CriteriaBuilder builder, final Path<?> path
-            , final Object filterValue, final Class<?> attributeType, final boolean isId) {
-        if ("_NULL_".equals(filterValue)) {
-            return builder.isNull(path);
-        } else if (filterValue instanceof Enum) {
-            return buildEnumPredicate(path, builder, filterValue);
-        } else if (isId) {
-            return builder.equal(path, formatIdentifier(filterValue, attributeType));
+        if ("_NULL_".equals(value)) {
+            return builder.isNull(valuePath);
+        } else if (value instanceof Enum) {
+            return buildEnumPredicate(valuePath, builder, value);
+        } else if (attribute.isId()) {
+            return builder.equal(valuePath, formatIdentifier(value, attribute.getType().getJavaType()));
         } else {
-            return builder.like(getValue(path, builder), "%" + String.valueOf(filterValue).toUpperCase() + "%");
+            return builder.like(getValue(valuePath, builder), "%" + String.valueOf(value).toUpperCase() + "%");
         }
     }
 
-    private Object formatIdentifier(final Object filterValue, final Class<?> attributeType) {
-        if (filterValue == null) {
+    private Object formatIdentifier(final Object value, final Class<?> attributeType) {
+        if (value == null) {
             return null;
         }
-        if (attributeType != null && !attributeType.isInstance(filterValue)) {
-            final String value = filterValue.toString();
+        if (attributeType != null && !attributeType.isInstance(value)) {
+            final String id = value.toString();
             switch (getEnum(attributeType)) {
                 case UUID:
-                    return UUID.fromString(value);
+                    return UUID.fromString(id);
                 case LONG:
-                    return Long.valueOf(value);
+                    return Long.valueOf(id);
                 case INTEGER:
-                    return Integer.valueOf(value);
+                    return Integer.valueOf(id);
                 case STRING:
-                    return value;
+                    return id;
                 default:
             }
         }
-        return filterValue;
+        return value;
     }
 
     private CrudConstant.TypeId getEnum(final Class<?> attributeType) {
