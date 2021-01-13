@@ -6,9 +6,8 @@ import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
-public interface ICrudService<Entity> {
+public interface ICrudService<Entity, Id> {
 
     List<Entity> find(Map<String, Object> filters);
 
@@ -16,11 +15,11 @@ public interface ICrudService<Entity> {
 
     Page<Entity> find(Map<String, Object> filters, Pageable pageable);
 
-    Entity find(UUID id);
+    Entity find(Id id);
 
     Entity create(Entity obj);
 
-    Entity update(UUID id, Map<String, Object> fields);
+    Entity update(Id id, Map<String, Object> fields);
 
-    void delete(UUID obj);
+    void delete(Id id);
 }

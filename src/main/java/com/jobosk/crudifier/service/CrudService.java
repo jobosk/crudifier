@@ -33,25 +33,25 @@ import java.util.UUID;
 //@Primary
 //@Service
 //@Scope("prototype")
-public abstract class CrudService<Entity> implements ICrudService<Entity> {
+public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id> {
 
     private static final String ID = "id";
     private static final String SEPARATOR = ".";
 
-    private final GenericRepository<Entity> repository;
+    private final GenericRepository<Entity, Id> repository;
     private final GenericSupplier<Entity> supplierCreate;
     private final GenericSupplier<Entity> supplierUpdate;
-    private final GenericSupplier<UUID> supplierDelete;
+    private final GenericSupplier<Id> supplierDelete;
 
     @Autowired
     private ObjectMapper mapper;
     //protected DozerBeanMapper mapper;
 
     public CrudService(
-            final GenericRepository<Entity> repository
+            final GenericRepository<Entity, Id> repository
             , final GenericSupplier<Entity> supplierCreate
             , final GenericSupplier<Entity> supplierUpdate
-            , final GenericSupplier<UUID> supplierDelete
+            , final GenericSupplier<Id> supplierDelete
     ) {
         this.repository = repository;
         this.supplierCreate = supplierCreate;
@@ -59,7 +59,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
         this.supplierDelete = supplierDelete;
     }
 
-    public CrudService(final GenericRepository<Entity> repository) {
+    public CrudService(final GenericRepository<Entity, Id> repository) {
         this(repository, null, null, null);
     }
 
@@ -224,7 +224,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
 
     @Override
     @Transactional(readOnly = true)
-    public Entity find(final UUID id) {
+    public Entity find(final Id id) {
         return repository.getOne(id);
     }
 
@@ -240,7 +240,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
 
     @Override
     @Transactional
-    public Entity update(final UUID id, final Map<String, Object> fields) {
+    public Entity update(final Id id, final Map<String, Object> fields) {
         final Entity entity = repository.getOne(id);
         CopyUtil.copyProperties(entity, fields, mapper);
         return update(entity);
@@ -256,7 +256,7 @@ public abstract class CrudService<Entity> implements ICrudService<Entity> {
 
     @Override
     @Transactional
-    public void delete(final UUID id) {
+    public void delete(final Id id) {
         repository.deleteById(id);
         if (supplierDelete != null) {
             supplierDelete.getProcessor().onNext(id);

@@ -20,12 +20,11 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.util.Collection;
 import java.util.Map;
-import java.util.UUID;
 
-public abstract class CrudController<Entity> {
+public abstract class CrudController<Entity, Id> {
 
     @Autowired
-    private ICrudService<Entity> service;
+    private ICrudService<Entity, Id> service;
 
     @GetMapping()
     public @ResponseBody
@@ -109,18 +108,18 @@ public abstract class CrudController<Entity> {
 
     @PutMapping(path = "{" + CrudConstant.Http.Param.ID + "}")
     public @ResponseBody
-    Entity update(@PathVariable(value = CrudConstant.Http.Param.ID) final UUID id, @RequestBody final Map<String, Object> fields) {
+    Entity update(@PathVariable(value = CrudConstant.Http.Param.ID) final Id id, @RequestBody final Map<String, Object> fields) {
         return service.update(id, fields);
     }
 
     @DeleteMapping(path = "{" + CrudConstant.Http.Param.ID + "}")
-    public void delete(@PathVariable(value = CrudConstant.Http.Param.ID) final UUID id) {
+    public void delete(@PathVariable(value = CrudConstant.Http.Param.ID) final Id id) {
         service.delete(id);
     }
 
     @GetMapping(path = "{" + CrudConstant.Http.Param.ID + "}")
     public @ResponseBody
-    Entity findOne(@PathVariable(CrudConstant.Http.Param.ID) final UUID id) {
+    Entity findOne(@PathVariable(CrudConstant.Http.Param.ID) final Id id) {
         return service.find(id);
     }
 }
