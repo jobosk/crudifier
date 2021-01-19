@@ -2,8 +2,8 @@ package com.jobosk.crudifier.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobosk.crudifier.constant.CrudConstant;
+import com.jobosk.crudifier.entity.ICrudEntity;
 import com.jobosk.crudifier.repository.GenericRepository;
-import com.jobosk.crudifier.supplier.GenericSupplier;
 import com.jobosk.crudifier.util.CopyUtil;
 import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,28 +39,12 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     private static final String SEPARATOR = ".";
 
     private final GenericRepository<Entity, Id> repository;
-    private final GenericSupplier<Entity> supplierCreate;
-    private final GenericSupplier<Entity> supplierUpdate;
-    private final GenericSupplier<Id> supplierDelete;
 
     @Autowired
-    private ObjectMapper mapper;
-    //protected DozerBeanMapper mapper;
-
-    public CrudService(
-            final GenericRepository<Entity, Id> repository
-            , final GenericSupplier<Entity> supplierCreate
-            , final GenericSupplier<Entity> supplierUpdate
-            , final GenericSupplier<Id> supplierDelete
-    ) {
-        this.repository = repository;
-        this.supplierCreate = supplierCreate;
-        this.supplierUpdate = supplierUpdate;
-        this.supplierDelete = supplierDelete;
-    }
+    protected ObjectMapper mapper;
 
     public CrudService(final GenericRepository<Entity, Id> repository) {
-        this(repository, null, null, null);
+        this.repository = repository;
     }
 
     @Override
@@ -231,11 +215,10 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     @Override
     @Transactional
     public Entity create(final Entity obj) {
-        final Entity result = repository.save(obj);
-        if (supplierCreate != null) {
-            supplierCreate.getProcessor().onNext(result);
+        if (obj instanceof ICrudEntity) {
+            ((ICrudEntity<?>) obj).setId(null);
         }
-        return result;
+        return update(obj);
     }
 
     @Override
@@ -247,19 +230,12 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     protected Entity update(final Entity entity) {
-        final Entity result = repository.save(entity);
-        if (supplierUpdate != null) {
-            supplierUpdate.getProcessor().onNext(result);
-        }
-        return result;
+        return repository.save(entity);
     }
 
     @Override
     @Transactional
     public void delete(final Id id) {
         repository.deleteById(id);
-        if (supplierDelete != null) {
-            supplierDelete.getProcessor().onNext(id);
-        }
     }
 }
