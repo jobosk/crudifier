@@ -4,7 +4,7 @@ import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.supplier.GenericSupplier;
 import org.springframework.transaction.annotation.Transactional;
 
-public class EventCrudService<Entity, Id> extends CrudService<Entity, Id> {
+public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, Id> {
 
     private final GenericSupplier<Entity> supplierCreate;
     private final GenericSupplier<Entity> supplierUpdate;

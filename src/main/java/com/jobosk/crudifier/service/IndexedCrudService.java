@@ -1,10 +1,11 @@
 package com.jobosk.crudifier.service;
 
+import com.jobosk.crudifier.exception.CrudException;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.supplier.GenericSupplier;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
-public class IndexedCrudService<Entity, Id, Index> extends EventCrudService<Entity, Id> {
+public abstract class IndexedCrudService<Entity, Id, Index> extends EventCrudService<Entity, Id> {
 
     private final ElasticsearchRepository<Index, Id> elasticsearchRepository;
     private final Class<Index> elasticIndexType;
@@ -34,7 +35,17 @@ public class IndexedCrudService<Entity, Id, Index> extends EventCrudService<Enti
     protected Entity update(final Entity obj) {
         final Entity result = super.update(obj);
         if (elasticsearchRepository != null && elasticIndexType != null) {
-            elasticsearchRepository.save(mapper.convertValue(result, elasticIndexType));
+            elasticsearchRepository.save(getIndex(result));
+        }
+        return result;
+    }
+
+    private Index getIndex(final Entity entity) {
+        Index result;
+        try {
+            result = mapper.convertValue(entity, elasticIndexType);
+        } catch (final Exception e) {
+            throw new CrudException(e, "CRUD entity cannot be mapped to indexed type");
         }
         return result;
     }
