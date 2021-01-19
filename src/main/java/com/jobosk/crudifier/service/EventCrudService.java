@@ -6,20 +6,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, Id> {
 
-    private final GenericSupplier<Entity> supplierCreate;
-    private final GenericSupplier<Entity> supplierUpdate;
-    private final GenericSupplier<Id> supplierDelete;
+    private final GenericSupplier<Entity> createSupplier;
+    private final GenericSupplier<Entity> updateSupplier;
+    private final GenericSupplier<Id> deleteSupplier;
 
     public EventCrudService(
             final GenericRepository<Entity, Id> repository
-            , final GenericSupplier<Entity> supplierCreate
-            , final GenericSupplier<Entity> supplierUpdate
-            , final GenericSupplier<Id> supplierDelete
+            , final GenericSupplier<Entity> createSupplier
+            , final GenericSupplier<Entity> updateSupplier
+            , final GenericSupplier<Id> deleteSupplier
     ) {
         super(repository);
-        this.supplierCreate = supplierCreate;
-        this.supplierUpdate = supplierUpdate;
-        this.supplierDelete = supplierDelete;
+        this.createSupplier = createSupplier;
+        this.updateSupplier = updateSupplier;
+        this.deleteSupplier = deleteSupplier;
     }
 
     public EventCrudService(final GenericRepository<Entity, Id> repository) {
@@ -30,16 +30,16 @@ public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, I
     @Transactional
     public Entity create(final Entity obj) {
         final Entity result = super.create(obj);
-        if (supplierCreate != null) {
-            supplierCreate.getProcessor().onNext(result);
+        if (createSupplier != null) {
+            createSupplier.getProcessor().onNext(result);
         }
         return result;
     }
 
     protected Entity update(final Entity entity) {
         final Entity result = super.update(entity);
-        if (supplierUpdate != null) {
-            supplierUpdate.getProcessor().onNext(result);
+        if (updateSupplier != null) {
+            updateSupplier.getProcessor().onNext(result);
         }
         return result;
     }
@@ -48,8 +48,8 @@ public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, I
     @Transactional
     public void delete(final Id id) {
         super.delete(id);
-        if (supplierDelete != null) {
-            supplierDelete.getProcessor().onNext(id);
+        if (deleteSupplier != null) {
+            deleteSupplier.getProcessor().onNext(id);
         }
     }
 }
