@@ -5,18 +5,18 @@ import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.supplier.GenericSupplier;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
-public abstract class IndexedCrudService<Entity, Id, Index> extends EventCrudService<Entity, Id> {
+public abstract class IndexedCrudService<Entity, Id, EntityIndex> extends EventCrudService<Entity, Id> {
 
-    private final ElasticsearchRepository<Index, Id> elasticsearchRepository;
-    private final Class<Index> elasticIndexType;
+    private final ElasticsearchRepository<EntityIndex, Id> elasticsearchRepository;
+    private final Class<EntityIndex> elasticIndexType;
 
     public IndexedCrudService(
             final GenericRepository<Entity, Id> repository
             , final GenericSupplier<Entity> supplierCreate
             , final GenericSupplier<Entity> supplierUpdate
             , final GenericSupplier<Id> supplierDelete
-            , final ElasticsearchRepository<Index, Id> elasticsearchRepository
-            , final Class<Index> elasticIndexType
+            , final ElasticsearchRepository<EntityIndex, Id> elasticsearchRepository
+            , final Class<EntityIndex> elasticIndexType
     ) {
         super(repository, supplierCreate, supplierUpdate, supplierDelete);
         this.elasticsearchRepository = elasticsearchRepository;
@@ -25,8 +25,8 @@ public abstract class IndexedCrudService<Entity, Id, Index> extends EventCrudSer
 
     public IndexedCrudService(
             final GenericRepository<Entity, Id> repository
-            , final ElasticsearchRepository<Index, Id> elasticsearchRepository
-            , final Class<Index> elasticIndexType
+            , final ElasticsearchRepository<EntityIndex, Id> elasticsearchRepository
+            , final Class<EntityIndex> elasticIndexType
     ) {
         this(repository, null, null, null, elasticsearchRepository, elasticIndexType);
     }
@@ -35,13 +35,13 @@ public abstract class IndexedCrudService<Entity, Id, Index> extends EventCrudSer
     protected Entity update(final Entity obj) {
         final Entity result = super.update(obj);
         if (elasticsearchRepository != null && elasticIndexType != null) {
-            elasticsearchRepository.save(getIndex(result));
+            elasticsearchRepository.save(getEntityIndex(result));
         }
         return result;
     }
 
-    private Index getIndex(final Entity entity) {
-        Index result;
+    protected EntityIndex getEntityIndex(final Entity entity) {
+        EntityIndex result;
         try {
             result = mapper.convertValue(entity, elasticIndexType);
         } catch (final Exception e) {
