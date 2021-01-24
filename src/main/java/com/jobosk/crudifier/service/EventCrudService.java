@@ -4,6 +4,8 @@ import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.supplier.GenericSupplier;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, Id> {
 
     private final GenericSupplier<Entity> createSupplier;
@@ -36,8 +38,10 @@ public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, I
         return result;
     }
 
-    protected Entity update(final Entity entity) {
-        final Entity result = super.update(entity);
+    @Override
+    @Transactional
+    public Entity update(final Id id, final Map<String, Object> fields) {
+        final Entity result = super.update(id, fields);
         if (updateSupplier != null) {
             updateSupplier.getProcessor().onNext(result);
         }
