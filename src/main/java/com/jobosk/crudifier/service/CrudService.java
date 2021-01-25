@@ -141,7 +141,7 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         if ("_NULL_".equals(value)) {
             return builder.isNull(valuePath);
         } else if (value instanceof Enum) {
-            return buildEnumPredicate(valuePath, builder, value);
+            return builder.equal(path.as(String.class), ((Enum<?>) value).name());
         } else if (attribute.isId()) {
             return builder.equal(valuePath, formatIdentifier(value, attribute.getType().getJavaType()));
         } else {
@@ -190,10 +190,6 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     private Expression<String> formatDate(final Path<?> path, final CriteriaBuilder builder) {
         return builder.function("TO_CHAR", String.class, path, builder.literal("DD/MM/YYYY"));
-    }
-
-    private Predicate buildEnumPredicate(final Path<?> path, final CriteriaBuilder builder, final Object filterValue) {
-        return builder.like(path.as(String.class), "%" + ((Enum<?>) filterValue).name() + "%");
     }
 
     @SuppressWarnings("unchecked")
