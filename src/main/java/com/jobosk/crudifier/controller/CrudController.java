@@ -35,8 +35,8 @@ public abstract class CrudController<Entity, Id> {
     ) {
         Collection<Entity> result;
         final Sort sort = getSort(getParameter(parameters, "order"));
-        final Optional<Integer> page = getInteger(parameters, "page");
-        final Optional<Integer> size = getInteger(parameters, "size");
+        final Optional<Integer> page = getInteger(getParameter(parameters, "page"));
+        final Optional<Integer> size = getInteger(getParameter(parameters, "size"));
         if (page.isPresent() && size.isPresent()) {
             final Pageable pageRequest = getPageRequest(page.get(), size.get(), sort);
             Page<Entity> pagedResult = service.find(parameters, pageRequest);
@@ -64,8 +64,8 @@ public abstract class CrudController<Entity, Id> {
         return result;
     }
 
-    protected Optional<Integer> getInteger(final Map<String, Object> parameters, final String key) {
-        return Optional.ofNullable(getParameter(parameters, key))
+    protected Optional<Integer> getInteger(final Object value) {
+        return Optional.ofNullable(value)
                 .filter(Integer.class::isInstance)
                 .map(Integer.class::cast);
     }
