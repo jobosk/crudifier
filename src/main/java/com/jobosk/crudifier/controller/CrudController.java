@@ -92,7 +92,7 @@ public abstract class CrudController<Entity, Id> {
         return Sort.by((isDesc ? Sort.Direction.DESC : Sort.Direction.ASC), sort);
     }
 
-    private Pageable getPageRequest(final int page, final int size, final Sort sort) {
+    protected Pageable getPageRequest(final int page, final int size, final Sort sort) {
         return sort != null ? PageRequest.of(page, size, sort) : PageRequest.of(page, size);
     }
 
