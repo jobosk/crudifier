@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 public abstract class CrudController<Entity, Id> {
 
@@ -34,10 +35,10 @@ public abstract class CrudController<Entity, Id> {
     ) {
         Collection<Entity> result;
         final Sort sort = getSort(getParameter(parameters, "order"));
-        final Integer page = getInteger(getParameter(parameters, "page"));
-        final Integer size = getInteger(getParameter(parameters, "size"));
-        if (page != null && size != null) {
-            final Pageable pageRequest = getPageRequest(page, size, sort);
+        final Optional<Integer> page = getInteger(parameters, "page");
+        final Optional<Integer> size = getInteger(parameters, "size");
+        if (page.isPresent() && size.isPresent()) {
+            final Pageable pageRequest = getPageRequest(page.get(), size.get(), sort);
             Page<Entity> pagedResult = service.find(parameters, pageRequest);
             response.addHeader(CrudConstant.Http.Header.TOTAL_COUNT, String.valueOf(pagedResult.getTotalElements()));
             response.addHeader(CrudConstant.Http.Header.EXPOSE_HEADER, CrudConstant.Http.Header.TOTAL_COUNT);
@@ -48,27 +49,7 @@ public abstract class CrudController<Entity, Id> {
         return result;
     }
 
-    private Integer getInteger(final Object value) {
-        Integer result;
-        try {
-            result = Integer.valueOf(value.toString());
-        } catch (final Exception e) {
-            // TODO Log error
-            result = null;
-        }
-        return result;
-    }
-
-    private Object getParameter(final Map<String, Object> parameters, final String key) {
-        if (key == null || parameters == null) {
-            return null;
-        }
-        final Object result = parameters.get(key);
-        parameters.entrySet().removeIf(e -> key.equals(e.getKey()));
-        return result;
-    }
-
-    private Sort getSort(final Object sort) {
+    protected Sort getSort(final Object sort) {
         if (sort == null) {
             return null;
         }
@@ -80,6 +61,21 @@ public abstract class CrudController<Entity, Id> {
         for (int i = 1; i < list.length; i++) {
             result = result.and(getDirectionSort(list[i]));
         }
+        return result;
+    }
+
+    protected Optional<Integer> getInteger(final Map<String, Object> parameters, final String key) {
+        return Optional.ofNullable(getParameter(parameters, key))
+                .filter(Integer.class::isInstance)
+                .map(Integer.class::cast);
+    }
+
+    protected Object getParameter(final Map<String, Object> parameters, final String key) {
+        if (key == null || parameters == null) {
+            return null;
+        }
+        final Object result = parameters.get(key);
+        parameters.entrySet().removeIf(e -> key.equals(e.getKey()));
         return result;
     }
 
