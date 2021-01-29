@@ -65,7 +65,7 @@ public abstract class CrudController<Entity, Id> {
     }
 
     protected Optional<Integer> getInteger(final String value) {
-        return Optional.ofNullable(value).map(Integer.class::cast);
+        return Optional.ofNullable(value).map(Integer::valueOf);
     }
 
     protected String getParameter(final Map<String, String> parameters, final String key) {
