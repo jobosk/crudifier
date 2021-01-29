@@ -30,7 +30,7 @@ public abstract class CrudController<Entity, Id> {
     @GetMapping()
     public @ResponseBody
     Collection<Entity> findAll(
-            @RequestParam Map<String, Object> parameters
+            @RequestParam Map<String, String> parameters
             , final HttpServletResponse response
     ) {
         Collection<Entity> result;
@@ -64,17 +64,15 @@ public abstract class CrudController<Entity, Id> {
         return result;
     }
 
-    protected Optional<Integer> getInteger(final Object value) {
-        return Optional.ofNullable(value)
-                .filter(Integer.class::isInstance)
-                .map(Integer.class::cast);
+    protected Optional<Integer> getInteger(final String value) {
+        return Optional.ofNullable(value).map(Integer.class::cast);
     }
 
-    protected Object getParameter(final Map<String, Object> parameters, final String key) {
+    protected String getParameter(final Map<String, String> parameters, final String key) {
         if (key == null || parameters == null) {
             return null;
         }
-        final Object result = parameters.get(key);
+        final String result = parameters.get(key);
         parameters.entrySet().removeIf(e -> key.equals(e.getKey()));
         return result;
     }

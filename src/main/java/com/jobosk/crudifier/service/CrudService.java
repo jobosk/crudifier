@@ -49,23 +49,23 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     @Override
     @Transactional(readOnly = true)
-    public List<Entity> find(final Map<String, Object> filters) {
+    public List<Entity> find(final Map<String, String> filters) {
         return repository.findAll(getSpecification(filters));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Entity> find(final Map<String, Object> filters, final Sort sort) {
+    public List<Entity> find(final Map<String, String> filters, final Sort sort) {
         return repository.findAll(getSpecification(filters), sort);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<Entity> find(final Map<String, Object> filters, final Pageable pageable) {
+    public Page<Entity> find(final Map<String, String> filters, final Pageable pageable) {
         return repository.findAll(getSpecification(filters), pageable);
     }
 
-    private Specification<Entity> getSpecification(final Map<String, Object> filters) {
+    private Specification<Entity> getSpecification(final Map<String, String> filters) {
         return (Specification<Entity>) (root, query, builder) -> {
             final List<Predicate> predicates = new ArrayList<>();
             filters.forEach((key, value) -> {
@@ -133,20 +133,23 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
             , final EntityType<?> entityType, final String property, final Object value) {
         SingularAttribute<?, ?> attribute = entityType.getSingularAttribute(property);
         Path<?> valuePath = getSinglePath(path, attribute);
-        final Type<?> attributeType = attribute.getType();
+        Type<?> attributeType = attribute.getType();
         if (attributeType instanceof EntityType) {
             attribute = ((EntityType<?>) attributeType).getDeclaredSingularAttribute(ID);
             valuePath = getSinglePath(valuePath, attribute);
+            attributeType = attribute.getType();
         }
-        if ("_NULL_".equals(value)) {
+        if (value == null) {
             return builder.isNull(valuePath);
-        } else if (value instanceof Enum) {
-            return builder.equal(path.as(String.class), ((Enum<?>) value).name());
-        } else if (attribute.isId()) {
-            return builder.equal(valuePath, formatIdentifier(value, attribute.getType().getJavaType()));
-        } else {
-            return builder.like(getValue(valuePath, builder), "%" + String.valueOf(value).toUpperCase() + "%");
         }
+        final Class<?> type = attributeType.getJavaType();
+        if (attribute.isId()) {
+            return builder.equal(valuePath, formatIdentifier(value, type));
+        }
+        if (type.isEnum() && value instanceof Enum) {
+            return builder.equal(path.as(String.class), ((Enum<?>) value).name());
+        }
+        return builder.like(getValue(valuePath, builder), "%" + String.valueOf(value).toUpperCase() + "%");
     }
 
     private Object formatIdentifier(final Object value, final Class<?> attributeType) {

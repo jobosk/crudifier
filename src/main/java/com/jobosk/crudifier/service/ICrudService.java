@@ -9,11 +9,11 @@ import java.util.Map;
 
 public interface ICrudService<Entity, Id> {
 
-    List<Entity> find(Map<String, Object> filters);
+    List<Entity> find(Map<String, String> filters);
 
-    List<Entity> find(Map<String, Object> filters, Sort sort);
+    List<Entity> find(Map<String, String> filters, Sort sort);
 
-    Page<Entity> find(Map<String, Object> filters, Pageable pageable);
+    Page<Entity> find(Map<String, String> filters, Pageable pageable);
 
     Entity find(Id id);
 
