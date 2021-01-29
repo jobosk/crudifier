@@ -65,7 +65,13 @@ public abstract class CrudController<Entity, Id> {
     }
 
     protected Optional<Integer> getInteger(final String value) {
-        return Optional.ofNullable(value).map(Integer::valueOf);
+        return Optional.ofNullable(value).map(v -> {
+            try {
+                return Integer.valueOf(v);
+            } catch (final Exception e) {
+                throw new RuntimeException("Invalid value for integer parameter: " + value); // TODO Codificar error
+            }
+        });
     }
 
     protected String getParameter(final Map<String, String> parameters, final String key) {
