@@ -68,21 +68,41 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     private Specification<Entity> getSpecification(final Map<String, String> filters) {
         return (Specification<Entity>) (root, query, builder) -> {
             final List<Predicate> predicates = new ArrayList<>();
-            filters.forEach((key, value) -> {
-                final Predicate predicate = buildPredicate(
-                        builder
-                        , root
-                        , root
-                        , root.getModel()
-                        , key
-                        , value
-                );
-                if (predicate != null) {
-                    predicates.add(predicate);
-                }
-            });
+            filters.entrySet()
+                    .stream()
+                    .filter(e -> e.getValue() != null)
+                    .forEach(e -> {
+                        final String key = e.getKey();
+                        final String[] values = e.getValue().split(",");
+                        if (values.length > 0) {
+                            if (values.length == 1) {
+                                addPredicate(predicates, builder, root, root, root.getModel(), key, values[0]);
+                            } else {
+                                final List<Predicate> predicatesOr = new ArrayList<>();
+                                for (final String value : values) {
+                                    addPredicate(predicatesOr, builder, root, root, root.getModel(), key, value);
+                                }
+                                predicates.add(builder.or(predicatesOr.toArray(new Predicate[0])));
+                            }
+                        }
+                    });
             return builder.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private void addPredicate(final List<Predicate> predicates, final CriteriaBuilder builder, final From<?, ?> from
+            , final Path<?> path, final EntityType<?> entityType, final String property, final Object filterValue) {
+        final Predicate predicate = buildPredicate(
+                builder
+                , from
+                , path
+                , entityType
+                , property
+                , filterValue
+        );
+        if (predicate != null) {
+            predicates.add(predicate);
+        }
     }
 
     private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
