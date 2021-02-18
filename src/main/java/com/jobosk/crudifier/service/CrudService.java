@@ -20,8 +20,9 @@ import javax.persistence.criteria.ListJoin;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.metamodel.Attribute;
-import javax.persistence.metamodel.EntityType;
+import javax.persistence.metamodel.BasicType;
 import javax.persistence.metamodel.ListAttribute;
+import javax.persistence.metamodel.ManagedType;
 import javax.persistence.metamodel.SingularAttribute;
 import javax.persistence.metamodel.Type;
 import java.util.ArrayList;
@@ -91,85 +92,180 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     private void addPredicate(final List<Predicate> predicates, final CriteriaBuilder builder, final From<?, ?> from
-            , final Path<?> path, final EntityType<?> entityType, final String property, final Object filterValue) {
-        final Predicate predicate = buildPredicate(
-                builder
-                , from
-                , path
-                , entityType
-                , property
-                , filterValue
-        );
+            , final Path<?> path, final ManagedType<?> modelType, final String property, final Object filterValue) {
+        final Predicate predicate;
+        if ("genericSearch".equals(property)) {
+            predicate = buildPredicateGenericSearch(
+                    builder
+                    , from
+                    , path
+                    , modelType
+                    , filterValue
+            );
+        } else {
+            predicate = buildPredicate(
+                    builder
+                    , from
+                    , path
+                    , modelType
+                    , property
+                    , filterValue
+            );
+        }
         if (predicate != null) {
             predicates.add(predicate);
         }
     }
 
+    private Predicate buildPredicateGenericSearch(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
+            , final ManagedType<?> modelType, final Object filterValue) {
+        final List<Predicate> predicates = new ArrayList<>();
+        for (Attribute<?, ?> attribute : modelType.getAttributes()) {
+            final Predicate predicate = buildPredicate(
+                    builder
+                    , from
+                    , path
+                    , attribute
+                    , null
+                    , filterValue
+            );
+            if (predicate != null) {
+                predicates.add(predicate);
+            }
+        }
+        return builder.or(predicates.toArray(new Predicate[0]));
+    }
+
     private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
-            , final EntityType<?> entityType, final String property, final Object filterValue) {
+            , final ManagedType<?> modelType, final String property, final Object filterValue) {
         if (filterValue == null) {
             return null;
         }
         final int index = property != null ? property.indexOf(SEPARATOR) : -1;
-        if (index == -1) {
-            final SingularAttribute<?, ?> attribute = entityType.getSingularAttribute(property);
-            return getAttributeValue(
-                    builder
-                    , path
-                    , attribute
-                    , filterValue
+        if (index != -1) {
+            final Attribute<?, ?> attribute = modelType.getAttribute(
+                    property.substring(0, index)
             );
-        }
-        Attribute<?, ?> attribute = entityType.getAttribute(
-                property.substring(0, index)
-        );
-        if (attribute instanceof SingularAttribute) {
-            final SingularAttribute<?, ?> singularAttribute = (SingularAttribute<?, ?>) attribute;
             return buildPredicate(
                     builder
                     , from
-                    , getSinglePath(path, singularAttribute)
-                    , (EntityType<?>) singularAttribute.getType()
+                    , path
+                    , attribute
                     , property.substring(index + 1)
                     , filterValue
             );
+        }
+        if (property != null) {
+            return setProperty(builder, path, modelType, property, filterValue);
+        } else {
+            return setAttributes(builder, path, modelType, filterValue);
+        }
+    }
+
+    private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
+            , final Attribute<?, ?> attribute, final String property, final Object filterValue) {
+        if (attribute instanceof SingularAttribute) {
+            final SingularAttribute<?, ?> singularAttribute = (SingularAttribute<?, ?>) attribute;
+            final Type<?> modelType = singularAttribute.getType();
+            if (modelType instanceof ManagedType) {
+                return buildPredicate(
+                        builder
+                        , from
+                        , getSinglePath(path, singularAttribute)
+                        , (ManagedType<?>) modelType
+                        , property
+                        , filterValue
+                );
+            } else if (modelType instanceof BasicType) {
+                return setAttribute(
+                        builder
+                        , path
+                        , singularAttribute
+                        , filterValue
+                );
+            }
         }
         if (attribute instanceof ListAttribute) {
             final ListAttribute<?, ?> listAttribute = (ListAttribute<?, ?>) attribute;
             final ListAttributeJoin<?, ?> join = (ListAttributeJoin<?, ?>) getJoin(from, listAttribute);
-            return buildPredicate(
-                    builder
-                    , join
-                    , join
-                    , (EntityType<?>) join.getAttribute().getElementType()
-                    , property.substring(index + 1)
-                    , filterValue
-            );
+            final Type<?> modelType = join.getAttribute().getElementType();
+            if (modelType instanceof ManagedType) {
+                return buildPredicate(
+                        builder
+                        , join
+                        , join
+                        , (ManagedType<?>) modelType
+                        , property
+                        , filterValue
+                );
+            }
         }
         return null;
     }
 
-    private Predicate getAttributeValue(final CriteriaBuilder builder, final Path<?> path
-            , final SingularAttribute<?, ?> singularAttribute, final Object value) {
-        SingularAttribute<?, ?> attribute = singularAttribute;
-        Path<?> valuePath = getSinglePath(path, attribute);
-        Type<?> attributeType = attribute.getType();
-        if (attributeType instanceof EntityType) {
-            attribute = ((EntityType<?>) attributeType).getDeclaredSingularAttribute(ID);
-            valuePath = getSinglePath(valuePath, attribute);
-            attributeType = attribute.getType();
+    private Predicate setProperty(final CriteriaBuilder builder, final Path<?> path
+            , final ManagedType<?> modelType, final String property, final Object filterValue) {
+        final SingularAttribute<?, ?> attribute = modelType.getSingularAttribute(property);
+        return setAttribute(
+                builder
+                , path
+                , attribute
+                , filterValue
+        );
+    }
+
+    private <T> Predicate setAttributes(final CriteriaBuilder builder, final Path<?> path
+            , final ManagedType<T> modelType, final Object filterValue) {
+        final List<Predicate> predicates = new ArrayList<>();
+        for (SingularAttribute<? super T, ?> attribute : modelType.getSingularAttributes()) {
+            predicates.add(setAttribute(
+                    builder
+                    , path
+                    , attribute
+                    , filterValue
+            ));
         }
+        return builder.or(predicates.toArray(new Predicate[0]));
+    }
+
+    private <T, R> Predicate setAttribute(final CriteriaBuilder builder, final Path<?> path
+            , final SingularAttribute<? super T, R> attribute, final Object value) {
+        Path<R> valuePath = getSinglePath(path, attribute);
+        Type<R> attributeType = attribute.getType();
+        if (attributeType instanceof ManagedType) {
+            SingularAttribute<? super R, ?> attributeId = ((ManagedType<R>) attributeType).getSingularAttribute(ID);
+            return setAttributeValue(
+                    builder
+                    , getSinglePath(valuePath, attributeId)
+                    , attributeId.getType().getJavaType()
+                    , attribute.isId()
+                    , value
+            );
+        }
+        return setAttributeValue(
+                builder
+                , valuePath
+                , attributeType.getJavaType()
+                , attribute.isId()
+                , value
+        );
+    }
+
+    private Predicate setAttributeValue(final CriteriaBuilder builder, final Path<?> path, final Class<?> type
+            , final boolean isId, final Object value) {
         if (value == null) {
-            return builder.isNull(valuePath);
+            return builder.isNull(path);
         }
-        final Class<?> type = attributeType.getJavaType();
-        if (attribute.isId()) {
-            return builder.equal(valuePath, formatIdentifier(value, type));
+        if (isId) {
+            final Object id = formatIdentifier(value, type);
+            if (id != null) {
+                return builder.equal(path, id);
+            }
         }
         if (type.isEnum() && value instanceof Enum) {
             return builder.equal(path.as(String.class), ((Enum<?>) value).name());
         }
-        return builder.like(getValue(valuePath, builder), "%" + String.valueOf(value).toUpperCase() + "%");
+        return builder.like(getValue(path, builder), "%" + String.valueOf(value).toUpperCase() + "%");
     }
 
     private Object formatIdentifier(final Object value, final Class<?> attributeType) {
@@ -178,19 +274,29 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         }
         if (attributeType != null && !attributeType.isInstance(value)) {
             final String id = value.toString();
-            switch (getEnum(attributeType)) {
-                case UUID:
-                    return UUID.fromString(id);
-                case LONG:
-                    return Long.valueOf(id);
-                case INTEGER:
-                    return Integer.valueOf(id);
-                case STRING:
-                    return id;
-                default:
+            try {
+                return formatValue(id, getEnum(attributeType));
+            } catch (final IllegalArgumentException iae) {
+                // TODO Add compatible log
+                return null;
             }
         }
         return value;
+    }
+
+    private Object formatValue(final String id, final CrudConstant.TypeId type) throws IllegalArgumentException {
+        switch (type) {
+            case UUID:
+                return UUID.fromString(id);
+            case LONG:
+                return Long.valueOf(id);
+            case INTEGER:
+                return Integer.valueOf(id);
+            case STRING:
+                return id;
+            default:
+        }
+        return null;
     }
 
     private CrudConstant.TypeId getEnum(final Class<?> attributeType) {
@@ -216,12 +322,12 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     @SuppressWarnings("unchecked")
-    private <X, Y> Path<Y> getSinglePath(final Path<X> path, final SingularAttribute<?, ?> attribute) {
+    private <X, Y> Path<Y> getSinglePath(final Path<X> path, final SingularAttribute<?, Y> attribute) {
         return path.get((SingularAttribute<? super X, Y>) attribute);
     }
 
     @SuppressWarnings("unchecked")
-    private <X, Y, Z> ListJoin<X, Y> getJoin(final From<Z, X> from, final ListAttribute<?, ?> listAttribute) {
+    private <X, Y, Z> ListJoin<X, Y> getJoin(final From<Z, X> from, final ListAttribute<?, Y> listAttribute) {
         return from.join((ListAttribute<? super X, Y>) listAttribute);
     }
 
