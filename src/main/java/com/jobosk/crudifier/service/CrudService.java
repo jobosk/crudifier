@@ -112,11 +112,11 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         }
         final int index = property != null ? property.indexOf(SEPARATOR) : -1;
         if (index == -1) {
+            final SingularAttribute<?, ?> attribute = entityType.getSingularAttribute(property);
             return getAttributeValue(
                     builder
                     , path
-                    , entityType
-                    , property
+                    , attribute
                     , filterValue
             );
         }
@@ -150,8 +150,8 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     private Predicate getAttributeValue(final CriteriaBuilder builder, final Path<?> path
-            , final EntityType<?> entityType, final String property, final Object value) {
-        SingularAttribute<?, ?> attribute = entityType.getSingularAttribute(property);
+            , final SingularAttribute<?, ?> singularAttribute, final Object value) {
+        SingularAttribute<?, ?> attribute = singularAttribute;
         Path<?> valuePath = getSinglePath(path, attribute);
         Type<?> attributeType = attribute.getType();
         if (attributeType instanceof EntityType) {
