@@ -16,11 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.From;
-import javax.persistence.criteria.ListJoin;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.metamodel.Attribute;
 import javax.persistence.metamodel.BasicType;
+import javax.persistence.metamodel.IdentifiableType;
 import javax.persistence.metamodel.ListAttribute;
 import javax.persistence.metamodel.ManagedType;
 import javax.persistence.metamodel.SingularAttribute;
@@ -91,8 +91,8 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         };
     }
 
-    private void addPredicate(final List<Predicate> predicates, final CriteriaBuilder builder, final From<?, ?> from
-            , final Path<?> path, final ManagedType<?> modelType, final String property, final Object filterValue) {
+    private <T> void addPredicate(final List<Predicate> predicates, final CriteriaBuilder builder, final From<?, ?> from
+            , final Path<T> path, final ManagedType<T> modelType, final String property, final Object filterValue) {
         final Predicate predicate;
         if ("genericSearch".equals(property)) {
             predicate = buildPredicateGenericSearch(
@@ -117,10 +117,10 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         }
     }
 
-    private Predicate buildPredicateGenericSearch(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
-            , final ManagedType<?> modelType, final Object filterValue) {
+    private <T> Predicate buildPredicateGenericSearch(final CriteriaBuilder builder, final From<?, ?> from
+            , final Path<T> path, final ManagedType<T> modelType, final Object filterValue) {
         final List<Predicate> predicates = new ArrayList<>();
-        for (Attribute<?, ?> attribute : modelType.getAttributes()) {
+        for (Attribute<? super T, ?> attribute : modelType.getAttributes()) {
             final Predicate predicate = buildPredicate(
                     builder
                     , from
@@ -136,14 +136,14 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         return builder.or(predicates.toArray(new Predicate[0]));
     }
 
-    private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
-            , final ManagedType<?> modelType, final String property, final Object filterValue) {
+    private <T> Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<T> path
+            , final ManagedType<T> modelType, final String property, final Object filterValue) {
         if (filterValue == null) {
             return null;
         }
         final int index = property != null ? property.indexOf(SEPARATOR) : -1;
         if (index != -1) {
-            final Attribute<?, ?> attribute = modelType.getAttribute(
+            final Attribute<? super T, ?> attribute = modelType.getAttribute(
                     property.substring(0, index)
             );
             return buildPredicate(
@@ -162,17 +162,17 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         }
     }
 
-    private Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<?> path
-            , final Attribute<?, ?> attribute, final String property, final Object filterValue) {
+    private <T, R> Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<T> path
+            , final Attribute<? super T, R> attribute, final String property, final Object filterValue) {
         if (attribute instanceof SingularAttribute) {
-            final SingularAttribute<?, ?> singularAttribute = (SingularAttribute<?, ?>) attribute;
-            final Type<?> modelType = singularAttribute.getType();
+            final SingularAttribute<T, R> singularAttribute = (SingularAttribute<T, R>) attribute;
+            final Type<R> modelType = singularAttribute.getType();
             if (modelType instanceof ManagedType) {
                 return buildPredicate(
                         builder
                         , from
-                        , getSinglePath(path, singularAttribute)
-                        , (ManagedType<?>) modelType
+                        , path.get(singularAttribute)
+                        , (ManagedType<R>) modelType
                         , property
                         , filterValue
                 );
@@ -186,15 +186,14 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
             }
         }
         if (attribute instanceof ListAttribute) {
-            final ListAttribute<?, ?> listAttribute = (ListAttribute<?, ?>) attribute;
-            final ListAttributeJoin<?, ?> join = (ListAttributeJoin<?, ?>) getJoin(from, listAttribute);
-            final Type<?> modelType = join.getAttribute().getElementType();
+            final ListAttributeJoin<T, R> join = (ListAttributeJoin<T, R>) from.join((ListAttribute) attribute);
+            final Type<R> modelType = join.getAttribute().getElementType();
             if (modelType instanceof ManagedType) {
                 return buildPredicate(
                         builder
                         , join
                         , join
-                        , (ManagedType<?>) modelType
+                        , (ManagedType<R>) modelType
                         , property
                         , filterValue
                 );
@@ -203,9 +202,9 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         return null;
     }
 
-    private Predicate setProperty(final CriteriaBuilder builder, final Path<?> path
-            , final ManagedType<?> modelType, final String property, final Object filterValue) {
-        final SingularAttribute<?, ?> attribute = modelType.getSingularAttribute(property);
+    private <T> Predicate setProperty(final CriteriaBuilder builder, final Path<T> path
+            , final ManagedType<T> modelType, final String property, final Object filterValue) {
+        final SingularAttribute<? super T, ?> attribute = modelType.getSingularAttribute(property);
         return setAttribute(
                 builder
                 , path
@@ -214,7 +213,7 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         );
     }
 
-    private <T> Predicate setAttributes(final CriteriaBuilder builder, final Path<?> path
+    private <T> Predicate setAttributes(final CriteriaBuilder builder, final Path<T> path
             , final ManagedType<T> modelType, final Object filterValue) {
         final List<Predicate> predicates = new ArrayList<>();
         for (SingularAttribute<? super T, ?> attribute : modelType.getSingularAttributes()) {
@@ -228,15 +227,15 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         return builder.or(predicates.toArray(new Predicate[0]));
     }
 
-    private <T, R> Predicate setAttribute(final CriteriaBuilder builder, final Path<?> path
+    private <T, R> Predicate setAttribute(final CriteriaBuilder builder, final Path<T> path
             , final SingularAttribute<? super T, R> attribute, final Object value) {
-        Path<R> valuePath = getSinglePath(path, attribute);
+        Path<R> valuePath = path.get(attribute);
         Type<R> attributeType = attribute.getType();
-        if (attributeType instanceof ManagedType) {
-            SingularAttribute<? super R, ?> attributeId = ((ManagedType<R>) attributeType).getSingularAttribute(ID);
+        if (attributeType instanceof IdentifiableType) {
+            SingularAttribute<? super R, ?> attributeId = ((IdentifiableType<R>) attributeType).getSingularAttribute(ID);
             return setAttributeValue(
                     builder
-                    , getSinglePath(valuePath, attributeId)
+                    , valuePath.get(attributeId)
                     , attributeId.getType().getJavaType()
                     , attribute.isId()
                     , value
@@ -251,8 +250,8 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         );
     }
 
-    private Predicate setAttributeValue(final CriteriaBuilder builder, final Path<?> path, final Class<?> type
-            , final boolean isId, final Object value) {
+    private Predicate setAttributeValue(final CriteriaBuilder builder, final Path<?> path
+            , final Class<?> type, final boolean isId, final Object value) {
         if (value == null) {
             return builder.isNull(path);
         }
@@ -319,16 +318,6 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     private Expression<String> formatDate(final Path<?> path, final CriteriaBuilder builder) {
         return builder.function("TO_CHAR", String.class, path, builder.literal("DD/MM/YYYY"));
-    }
-
-    @SuppressWarnings("unchecked")
-    private <X, Y> Path<Y> getSinglePath(final Path<X> path, final SingularAttribute<?, Y> attribute) {
-        return path.get((SingularAttribute<? super X, Y>) attribute);
-    }
-
-    @SuppressWarnings("unchecked")
-    private <X, Y, Z> ListJoin<X, Y> getJoin(final From<Z, X> from, final ListAttribute<?, Y> listAttribute) {
-        return from.join((ListAttribute<? super X, Y>) listAttribute);
     }
 
     @Override
