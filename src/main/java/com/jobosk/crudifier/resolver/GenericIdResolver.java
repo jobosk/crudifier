@@ -6,12 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
-import java.util.UUID;
-
-public abstract class GenericIdResolver<Entity> implements ObjectIdResolver {
+public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver {
 
     @Autowired
-    private JpaRepository<Entity, UUID> repository;
+    private JpaRepository<Entity, Id> repository;
 
     public GenericIdResolver() {
         SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
@@ -23,7 +21,7 @@ public abstract class GenericIdResolver<Entity> implements ObjectIdResolver {
 
     @Override
     public Object resolveId(final ObjectIdGenerator.IdKey id) {
-        return repository.findById((UUID) id.key).orElseThrow(
+        return repository.findById((Id) id.key).orElseThrow(
                 () -> new RuntimeException("Found reference to non-existen entity during object serialization")
         );
     }
