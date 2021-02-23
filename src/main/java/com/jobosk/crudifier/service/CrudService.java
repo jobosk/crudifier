@@ -217,12 +217,15 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
             , final ManagedType<T> modelType, final Object filterValue) {
         final List<Predicate> predicates = new ArrayList<>();
         for (SingularAttribute<? super T, ?> attribute : modelType.getSingularAttributes()) {
-            predicates.add(setAttribute(
+            final Predicate predicate = setAttribute(
                     builder
                     , path
                     , attribute
                     , filterValue
-            ));
+            );
+            if (predicate != null) {
+                predicates.add(predicate);
+            }
         }
         return builder.or(predicates.toArray(new Predicate[0]));
     }
