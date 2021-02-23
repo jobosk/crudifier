@@ -265,7 +265,7 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
             }
         }
         if (type.isEnum() && value instanceof Enum) {
-            return builder.equal(path.as(String.class), ((Enum<?>) value).name());
+            return builder.equal(path, ((Enum<?>) value).name());
         }
         return builder.like(getValue(path, builder), "%" + String.valueOf(value).toUpperCase() + "%");
     }
