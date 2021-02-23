@@ -316,11 +316,15 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     private Expression<String> getValue(final Path<?> path, final CriteriaBuilder builder) {
-        return Date.class.equals(path.getJavaType()) ? formatDate(path, builder) : builder.upper(path.as(String.class));
+        return Date.class.equals(path.getJavaType()) ? formatDate(path, builder) : formatString(path, builder);
     }
 
     private Expression<String> formatDate(final Path<?> path, final CriteriaBuilder builder) {
         return builder.function("TO_CHAR", String.class, path, builder.literal("DD/MM/YYYY"));
+    }
+
+    private Expression<String> formatString(final Path<?> path, final CriteriaBuilder builder) {
+        return builder.upper(path.as(String.class));
     }
 
     @Override
