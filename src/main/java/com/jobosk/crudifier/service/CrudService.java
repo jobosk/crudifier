@@ -27,8 +27,10 @@ import javax.persistence.metamodel.SingularAttribute;
 import javax.persistence.metamodel.Type;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 //@Primary
@@ -95,12 +97,12 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
             , final Path<T> path, final ManagedType<T> modelType, final String property, final Object filterValue) {
         final Predicate predicate;
         if ("genericSearch".equals(property)) {
-            predicate = buildPredicateGenericSearch(
+            predicate = buildPredicateAttributes(
                     builder
-                    , from
                     , path
                     , modelType
                     , filterValue
+                    , new HashSet<>()
             );
         } else {
             predicate = buildPredicate(
@@ -117,31 +119,24 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         }
     }
 
-    private <T> Predicate buildPredicateGenericSearch(final CriteriaBuilder builder, final From<?, ?> from
-            , final Path<T> path, final ManagedType<T> modelType, final Object filterValue) {
-        final List<Predicate> predicates = new ArrayList<>();
-        for (Attribute<? super T, ?> attribute : modelType.getAttributes()) {
-            final Predicate predicate = buildPredicate(
-                    builder
-                    , from
-                    , path
-                    , attribute
-                    , null
-                    , filterValue
-            );
-            if (predicate != null) {
-                predicates.add(predicate);
-            }
-        }
-        return builder.or(predicates.toArray(new Predicate[0]));
-    }
-
     private <T> Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<T> path
             , final ManagedType<T> modelType, final String property, final Object filterValue) {
-        if (filterValue == null) {
+        if (property == null || filterValue == null) {
             return null;
         }
-        final int index = property != null ? property.indexOf(SEPARATOR) : -1;
+        return buildPredicateProperty(
+                builder
+                , from
+                , path
+                , modelType
+                , property
+                , filterValue
+        );
+    }
+
+    private <T> Predicate buildPredicateProperty(final CriteriaBuilder builder, final From<?, ?> from, final Path<T> path
+            , final ManagedType<T> modelType, final String property, final Object filterValue) {
+        final int index = property.indexOf(SEPARATOR);
         if (index != -1) {
             final Attribute<? super T, ?> attribute = modelType.getAttribute(
                     property.substring(0, index)
@@ -155,11 +150,7 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
                     , filterValue
             );
         }
-        if (property != null) {
-            return setProperty(builder, path, modelType, property, filterValue);
-        } else {
-            return setAttributes(builder, path, modelType, filterValue);
-        }
+        return setProperty(builder, path, modelType, property, filterValue);
     }
 
     private <T, R> Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from, final Path<T> path
@@ -213,21 +204,51 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
         );
     }
 
-    private <T> Predicate setAttributes(final CriteriaBuilder builder, final Path<T> path
-            , final ManagedType<T> modelType, final Object filterValue) {
+    private <T> Predicate buildPredicateAttributes(final CriteriaBuilder builder, final Path<T> path
+            , final ManagedType<T> modelType, final Object filterValue, final Set<ManagedType<?>> visited) {
+        if (!visited.contains(modelType)) {
+            visited.add(modelType);
+        } else {
+            return null;
+        }
         final List<Predicate> predicates = new ArrayList<>();
         for (SingularAttribute<? super T, ?> attribute : modelType.getSingularAttributes()) {
-            final Predicate predicate = setAttribute(
+            final Predicate predicate = buildPredicateAttribute(
                     builder
                     , path
                     , attribute
                     , filterValue
+                    , visited
             );
             if (predicate != null) {
                 predicates.add(predicate);
             }
         }
         return builder.or(predicates.toArray(new Predicate[0]));
+    }
+
+    private <T, R> Predicate buildPredicateAttribute(final CriteriaBuilder builder, final Path<T> path
+            , final SingularAttribute<? super T, R> attribute, final Object filterValue
+            , final Set<ManagedType<?>> visited) {
+        final Type<R> modelType = attribute.getType();
+        if (modelType instanceof ManagedType) {
+            return buildPredicateAttributes(
+                    builder
+                    , path.get(attribute)
+                    , (ManagedType) modelType
+                    , filterValue
+                    , visited
+            );
+        }
+        if (modelType instanceof BasicType) {
+            return setAttribute(
+                    builder
+                    , path
+                    , attribute
+                    , filterValue
+            );
+        }
+        return null;
     }
 
     private <T, R> Predicate setAttribute(final CriteriaBuilder builder, final Path<T> path
