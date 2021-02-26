@@ -172,8 +172,6 @@ Response:
 
 ## Known bugs
 
-- Filtering by ID in the find all could result in a parsing exception.
-
 - Due to the way Jackson handles circular dependencies, serialization
 of two or more different entities poiting to the same sub-entity will
 result in the serialization of the sub-entity as an object in the first
