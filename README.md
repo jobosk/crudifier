@@ -18,11 +18,11 @@ and JPA repositories.
 <dependency>
     <groupId>com.github.jobosk</groupId>
     <artifactId>crudifier</artifactId>
-    <version>1.2</version>
+    <version>1.3</version>
 </dependency>
 ```
 - Define your model entities
-- Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY> (no extra logic required)
+- Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY, YOUR_ENTITYS_ID> (no extra logic required)
 - Indicate ID resolver for each entity with:
 ```
 @JsonIdentityInfo(
@@ -32,9 +32,9 @@ and JPA repositories.
         , resolver = YOUR_ENTITY_ID_RESOLVER.class
 )
 ```
-- Define repository interfaces extending: JpaRepository<YOUR_ENTITY, UUID>
-- Define service interfaces extending: ICrudService<YOUR_ENTITY>
-- Define service implementations implementing them, and extending: CrudService<YOUR_ENTITY>
+- Define repository interfaces extending: JpaRepository<YOUR_ENTITY, YOUR_ENTITYS_ID>
+- Define service interfaces extending: ICrudService<YOUR_ENTITY, YOUR_ENTITYS_ID>
+- Define service implementations implementing them, and extending: CrudService<YOUR_ENTITY, YOUR_ENTITYS_ID>
 - Declare public constructor for those services:
 ```
 @Autowired
@@ -42,7 +42,7 @@ public YOUR_ENTITY_SERVICE(final YOUR_ENTITY_REPOSITORY repository) {
 	super(repository);
 }
 ```
-- Define controllers with a particular mapping, extending: CrudController<YOUR_ENTITY> (no extra logic required)
+- Define controllers with a particular mapping, extending: CrudController<YOUR_ENTITY, YOUR_ENTITYS_ID> (no extra logic required)
 
 - Add the following bean in any configuration class (to avoid Jackson bug describen below):
 ```
