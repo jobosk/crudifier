@@ -21,6 +21,13 @@ and JPA repositories.
     <version>1.3</version>
 </dependency>
 ```
+**Note:** You might need to add the following repository to pick it up:
+```
+<repository>
+    <id>jitpack.io</id>
+    <url>https://jitpack.io</url>
+</repository>
+```
 - Define your model entities
 - Define ID resolvers extending: GenericIdResolver<YOUR_ENTITY, YOUR_ENTITYS_ID> (no extra logic required)
 - Indicate ID resolver for each entity with:
