@@ -22,12 +22,13 @@ public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver 
     }
 
     @Override
-    public Entity resolveId(final ObjectIdGenerator.IdKey id) {
-        final Optional<Entity> entity = repository.findById((Id) id.key);
+    public Entity resolveId(final ObjectIdGenerator.IdKey idKey) {
+        final Id id = (Id) idKey.key;
+        final Optional<Entity> entity = repository.findById(id);
         return entity.orElseGet(() -> resolveMissingEntity(id));
     }
 
-    protected Entity resolveMissingEntity(final ObjectIdGenerator.IdKey id) {
+    protected Entity resolveMissingEntity(final Id id) {
         throw new RuntimeException("Unable to serialize entity from reference: " + id);
     }
 
