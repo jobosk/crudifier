@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
+import java.util.Optional;
+
 public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver {
 
     @Autowired
@@ -20,10 +22,13 @@ public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver 
     }
 
     @Override
-    public Object resolveId(final ObjectIdGenerator.IdKey id) {
-        return repository.findById((Id) id.key).orElseThrow(
-                () -> new RuntimeException("Found reference to non-existen entity during object serialization")
-        );
+    public Entity resolveId(final ObjectIdGenerator.IdKey id) {
+        final Optional<Entity> entity = repository.findById((Id) id.key);
+        return entity.orElseGet(() -> resolveMissingEntity(id));
+    }
+
+    protected Entity resolveMissingEntity(final ObjectIdGenerator.IdKey id) {
+        throw new RuntimeException("Unable to serialize entity from reference: " + id);
     }
 
     @Override
