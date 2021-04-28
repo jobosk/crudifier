@@ -9,14 +9,8 @@ import java.util.Optional;
 
 public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver {
 
-    private final JpaRepository<Entity, Id> repository;
-
     @Autowired
-    public GenericIdResolver(
-            final JpaRepository<Entity, Id> repository
-    ) {
-        this.repository = repository;
-    }
+    private JpaRepository<Entity, Id> repository;
 
     @Override
     public void bindItem(final ObjectIdGenerator.IdKey id, final Object pojo) {
