@@ -4,17 +4,18 @@ import com.fasterxml.jackson.annotation.ObjectIdGenerator;
 import com.fasterxml.jackson.annotation.ObjectIdResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
 import java.util.Optional;
 
 public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver {
 
-    @Autowired
-    private JpaRepository<Entity, Id> repository;
+    private final JpaRepository<Entity, Id> repository;
 
-    public GenericIdResolver() {
-        SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
+    @Autowired
+    public GenericIdResolver(
+            final JpaRepository<Entity, Id> repository
+    ) {
+        this.repository = repository;
     }
 
     @Override
