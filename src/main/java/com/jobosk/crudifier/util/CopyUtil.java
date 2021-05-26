@@ -14,9 +14,11 @@ public class CopyUtil {
 
     public static void copyProperties(final Object obj, final Map<String, Object> props, final ObjectMapper mapper) {
         final BeanWrapper objWrap = PropertyAccessorFactory.forBeanPropertyAccess(obj);
-        props.forEach((key, value) -> objWrap.setPropertyValue(
-                key, convertValue(mapper, value, objWrap.getPropertyDescriptor(key))
-        ));
+        if (props != null) {
+            props.forEach((key, value) -> objWrap.setPropertyValue(
+                    key, convertValue(mapper, value, objWrap.getPropertyDescriptor(key))
+            ));
+        }
     }
 
     private static Object convertValue(final ObjectMapper mapper, final Object value
