@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.github.jobosk</groupId>
+  <artifactId>crudifier</artifactId>
+  <versioning>
+    <versions>
+      <version>1.4-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20210624120312</lastUpdated>
+  </versioning>
+</metadata>
