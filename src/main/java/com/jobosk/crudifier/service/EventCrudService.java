@@ -30,8 +30,8 @@ public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, I
 
     @Override
     @Transactional
-    public Entity create(final Entity obj) {
-        final Entity result = super.create(obj);
+    public Entity create(final Entity entity) {
+        final Entity result = super.create(entity);
         if (createSupplier != null) {
             createSupplier.getProcessor().onNext(result);
         }
@@ -40,20 +40,20 @@ public abstract class EventCrudService<Entity, Id> extends CrudService<Entity, I
 
     @Override
     @Transactional
-    public Entity update(final Id id, final Map<String, Object> fields) {
-        final Entity result = super.update(id, fields);
+    public Entity update(final Entity entity, final Map<String, Object> fields) {
         if (updateSupplier != null) {
-            updateSupplier.getProcessor().onNext(result);
+            updateSupplier.getProcessor().onNext(entity);
         }
-        return result;
+        return entity;
     }
 
     @Override
     @Transactional
-    public void delete(final Id id) {
+    public boolean delete(final Id id) {
         super.delete(id);
         if (deleteSupplier != null) {
             deleteSupplier.getProcessor().onNext(id);
         }
+        return true;
     }
 }

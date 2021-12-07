@@ -8,6 +8,7 @@ import com.jobosk.crudifier.util.CopyUtil;
 import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,11 +27,14 @@ import javax.persistence.metamodel.ListAttribute;
 import javax.persistence.metamodel.ManagedType;
 import javax.persistence.metamodel.SingularAttribute;
 import javax.persistence.metamodel.Type;
+import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -67,6 +71,76 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     @Transactional(readOnly = true)
     public Page<Entity> find(final Map<String, String> filters, final Pageable pageable) {
         return repository.findAll(getSpecification(filters), pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Collection<Entity> findAll(final Map<String, String> parameters, final HttpServletResponse response) {
+        Collection<Entity> result;
+        final Sort sort = getSort(getParameter(parameters, "order"));
+        final Optional<Integer> page = getInteger(getParameter(parameters, "page"));
+        final Optional<Integer> size = getInteger(getParameter(parameters, "size"));
+        if (page.isPresent() && size.isPresent()) {
+            final Pageable pageRequest = getPageRequest(page.get(), size.get(), sort);
+            Page<Entity> pagedResult = find(parameters, pageRequest);
+            response.addHeader(CrudConstant.Http.Header.TOTAL_COUNT, String.valueOf(pagedResult.getTotalElements()));
+            response.addHeader(CrudConstant.Http.Header.EXPOSE_HEADER, CrudConstant.Http.Header.TOTAL_COUNT);
+            result = pagedResult.getContent();
+        } else {
+            result = sort != null ? find(parameters, sort) : find(parameters);
+        }
+        return result;
+    }
+
+    protected Sort getSort(final Object sort) {
+        if (sort == null) {
+            return null;
+        }
+        final String[] list = sort.toString().split(",");
+        if (list.length == 0) {
+            return null;
+        }
+        Sort result = getDirectionSort(list[0]);
+        for (int i = 1; i < list.length; i++) {
+            result = result.and(getDirectionSort(list[i]));
+        }
+        return result;
+    }
+
+    protected Optional<Integer> getInteger(final String value) {
+        return Optional.ofNullable(value).map(v -> {
+            try {
+                return Integer.valueOf(v);
+            } catch (final Exception e) {
+                throw new RuntimeException("Invalid value for integer parameter: " + value); // TODO Codificar error
+            }
+        });
+    }
+
+    protected String getParameter(final Map<String, String> parameters, final String key) {
+        if (key == null || parameters == null) {
+            return null;
+        }
+        final String result = parameters.get(key);
+        parameters.entrySet().removeIf(e -> key.equals(e.getKey()));
+        return result;
+    }
+
+    private Sort getDirectionSort(final String value) {
+        final boolean isDesc;
+        final String sort;
+        if (value != null && value.charAt(0) == '-') {
+            isDesc = true;
+            sort = value.substring(1);
+        } else {
+            isDesc = false;
+            sort = value;
+        }
+        return Sort.by((isDesc ? Sort.Direction.DESC : Sort.Direction.ASC), sort);
+    }
+
+    protected Pageable getPageRequest(final int page, final int size, final Sort sort) {
+        return sort != null ? PageRequest.of(page, size, sort) : PageRequest.of(page, size);
     }
 
     private Specification<Entity> getSpecification(final Map<String, String> filters) {
@@ -356,17 +430,16 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     @Override
     @Transactional
-    public Entity create(final Entity obj) {
-        if (obj instanceof ICrudEntity) {
-            ((ICrudEntity<?>) obj).setId(null);
+    public Entity create(final Entity entity) {
+        if (entity instanceof ICrudEntity) {
+            ((ICrudEntity<?>) entity).setId(null);
         }
-        return update(obj);
+        return update(entity);
     }
 
     @Override
     @Transactional
-    public Entity update(final Id id, final Map<String, Object> fields) {
-        final Entity entity = repository.getOne(id);
+    public Entity update(final Entity entity, final Map<String, Object> fields) {
         CopyUtil.copyProperties(entity, fields, mapper);
         return update(entity);
     }
@@ -377,7 +450,8 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     @Override
     @Transactional
-    public void delete(final Id id) {
+    public boolean delete(final Id id) {
         repository.deleteById(id);
+        return true;
     }
 }
