@@ -74,7 +74,53 @@ by adding the following dependency before any other that might add the one witho
 
 ## API
 
-This will enable the following API to interact with the model:
+This will simplify the implementation of entity controllers, exposing all the required endpoints with just a few lines of code:
+```
+@RestController
+@RequestMapping("entity")
+public class EntityController extends CrudController<Entity, UUID> {
+
+    @Override
+    @GetMapping(ID_PATH)
+    @ResponseBody
+    public Entity findOne(final @PathVariable(CrudConstant.Http.Param.ID) UUID id) {
+        return service.find(id);
+    }
+
+    @Override
+    @GetMapping
+    @ResponseBody
+    public Collection<Entity> findAll(final @RequestParam Map<String, String> parameters
+            , final HttpServletResponse response) {
+        return service.findAll(parameters, response);
+    }
+
+    @Override
+    @PostMapping
+    @ResponseBody
+    public Entity create(final @Valid @RequestBody Entity entity) {
+        return service.create(entity);
+    }
+
+    @PutMapping(ID_PATH)
+    @ResponseBody
+    public Entity update(final @PathVariable(CrudConstant.Http.Param.ID) UUID id
+            , final @RequestBody Map<String, Object> fields) {
+        return update(service.find(id), fields);
+    }
+
+    @Override
+    public Entity update(final Entity entity, final Map<String, Object> fields) {
+        return service.update(entity, fields);
+    }
+
+    @Override
+    @DeleteMapping(ID_PATH)
+    public boolean delete(final @PathVariable(CrudConstant.Http.Param.ID) UUID id) {
+        return service.delete(id);
+    }
+}
+```
 
 ### Create entity
 
