@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface ICrudService<Entity, Id> {
 
@@ -19,7 +20,7 @@ public interface ICrudService<Entity, Id> {
 
     Collection<Entity> findAll(Map<String, String> filters, HttpServletResponse response);
 
-    Entity find(Id id);
+    Optional<Entity> find(Id id);
 
     Entity create(Entity obj);
 

@@ -424,8 +424,8 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     @Override
     @Transactional(readOnly = true)
-    public Entity find(final Id id) {
-        return repository.getOne(id);
+    public Optional<Entity> find(final Id id) {
+        return repository.findById(id);
     }
 
     @Override
