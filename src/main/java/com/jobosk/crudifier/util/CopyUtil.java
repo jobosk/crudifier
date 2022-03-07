@@ -1,15 +1,16 @@
 package com.jobosk.crudifier.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobosk.crudifier.entity.ICrudEntity;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
 
 import java.beans.PropertyDescriptor;
-import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 
 public class CopyUtil {
 
@@ -68,21 +69,15 @@ public class CopyUtil {
 
     private static <Entity> Entity getValue(final Object item, final Class<Entity> itemType
             , final Object previousValue, final ObjectMapper mapper) {
-        if (overridePreviousValue(itemType)) {
-            return mapper.convertValue(item, itemType);
+        if (ICrudEntity.class.isAssignableFrom(itemType)) {
+            final Entity prev = itemType.cast(previousValue);
+            final Map<?, ?> properties = mapper.convertValue(item, Map.class);
+            if (Objects.equals(((ICrudEntity<?>) prev).getId(), properties.remove("id"))) {
+                copyProperties(prev, properties, mapper);
+                return prev;
+            }
         }
-        return updatePreviousValue(previousValue, itemType, item, mapper);
-    }
-
-    private static <Entity> boolean overridePreviousValue(final Class<Entity> itemType) {
-        return Serializable.class.isAssignableFrom(itemType) || Collection.class.isAssignableFrom(itemType);
-    }
-
-    private static <Entity> Entity updatePreviousValue(final Object previousValue, final Class<Entity> itemType
-            , final Object item, final ObjectMapper mapper) {
-        final Entity result = mapper.convertValue(previousValue, itemType);
-        copyProperties(result, mapper.convertValue(item, Map.class), mapper);
-        return result;
+        return mapper.convertValue(item, itemType);
     }
 
     /*

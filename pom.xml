@@ -6,7 +6,7 @@
 
     <groupId>com.jobosk</groupId>
     <artifactId>crudifier</artifactId>
-    <version>1.5-SNAPSHOT</version>
+    <version>1.6-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <parent>
