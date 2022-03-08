@@ -1,7 +1,7 @@
 package com.jobosk.crudifier.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jobosk.crudifier.entity.ICrudEntity;
+import com.jobosk.crudifier.entity.IHasIdentifier;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
 
@@ -10,30 +10,32 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 
 public class CopyUtil {
 
+    private static final String PROPERTY_ID = "id";
+
     public static void copyProperties(final Object item, final Map<?, ?> props, final ObjectMapper mapper) {
-        final BeanWrapper wrapper = PropertyAccessorFactory.forBeanPropertyAccess(item);
+        final BeanWrapper itemWrapper = PropertyAccessorFactory.forBeanPropertyAccess(item);
         if (props != null) {
             props.entrySet().stream()
-                    .filter(e -> e.getKey() instanceof String && wrapper.isWritableProperty((String) e.getKey()))
-                    .forEach(e -> setValue(wrapper, (String) e.getKey(), e.getValue(), mapper));
+                    .filter(e -> e.getKey() instanceof String && itemWrapper.isWritableProperty((String) e.getKey()))
+                    .forEach(e -> setItemValue(itemWrapper, (String) e.getKey(), e.getValue(), mapper));
         }
     }
 
-    private static void setValue(final BeanWrapper wrapper, final String key, final Object value, final ObjectMapper mapper) {
-        wrapper.setPropertyValue(key, convertValue(
-                mapper
-                , value
-                , wrapper.getPropertyDescriptor(key)
-                , wrapper.getPropertyValue(key)
+    private static void setItemValue(final BeanWrapper itemWrapper, final String key, final Object value
+            , final ObjectMapper mapper) {
+        itemWrapper.setPropertyValue(key, convertValue(
+                value
+                , itemWrapper.getPropertyDescriptor(key)
+                , itemWrapper.getPropertyValue(key)
+                , mapper
         ));
     }
 
-    private static <Entity> Object convertValue(final ObjectMapper mapper, final Object value
-            , final PropertyDescriptor propertyDescriptor, final Entity previousValue) {
+    private static <ValueType> Object convertValue(final Object value, final PropertyDescriptor propertyDescriptor
+            , final ValueType previousValue, final ObjectMapper mapper) {
         if (value == null) {
             return null;
         }
@@ -42,8 +44,8 @@ public class CopyUtil {
             return convertedValue;
         }
         return convertCollection(
-                (Collection<Entity>) convertedValue
-                , (Class<Entity>) getItemType(propertyDescriptor)
+                (Collection<ValueType>) convertedValue
+                , (Class<ValueType>) getItemType(propertyDescriptor)
                 , previousValue
                 , mapper
         );
@@ -53,9 +55,9 @@ public class CopyUtil {
         return ((ParameterizedType) propertyDescriptor.getWriteMethod().getGenericParameterTypes()[0]).getActualTypeArguments()[0];
     }
 
-    private static <Entity> Collection<Entity> convertCollection(final Collection<Entity> convertedValue
-            , final Class<Entity> itemType, final Object previousValue, final ObjectMapper mapper) {
-        Collection<Entity> convertedCollection;
+    private static <ValueType> Collection<ValueType> convertCollection(final Collection<ValueType> convertedValue
+            , final Class<ValueType> itemType, final Object previousValue, final ObjectMapper mapper) {
+        Collection<ValueType> convertedCollection;
         try {
             convertedCollection = convertedValue.getClass().getDeclaredConstructor().newInstance();
             for (final Object v : convertedValue) {
@@ -67,17 +69,48 @@ public class CopyUtil {
         return convertedCollection;
     }
 
-    private static <Entity> Entity getValue(final Object item, final Class<Entity> itemType
+    private static <ValueType> ValueType getValue(final Object item, final Class<ValueType> valueType
             , final Object previousValue, final ObjectMapper mapper) {
-        if (ICrudEntity.class.isAssignableFrom(itemType)) {
-            final Entity prev = itemType.cast(previousValue);
+        //if (isValidJsonObject(previousValue)) {
+        if (IHasIdentifier.class.isAssignableFrom(valueType)) {
             final Map<?, ?> properties = mapper.convertValue(item, Map.class);
-            if (Objects.equals(((ICrudEntity<?>) prev).getId(), properties.remove("id"))) {
-                copyProperties(prev, properties, mapper);
-                return prev;
+            //final Map<?, ?> previousProperties = mapper.convertValue(previousValue, Map.class);
+            if (isSameItem(
+                    //previousProperties.get(PROPERTY_ID)
+                    ((IHasIdentifier<?>) valueType.cast(previousValue)).getId()
+                    , properties.remove(PROPERTY_ID)
+            )) {
+                return updateValue(valueType.cast(previousValue), properties, mapper);
             }
         }
-        return mapper.convertValue(item, itemType);
+        return mapper.convertValue(item, valueType);
+    }
+
+    /*
+    private static boolean isValidJsonObject(final Object value) {
+        try {
+            final JsonParser parser = new JsonFactory().createParser(value.toString());
+            do {
+                parser.nextToken();
+            } while (!parser.isClosed());
+        } catch (final Exception e) {
+            return false;
+        }
+        return true;
+    }
+    */
+
+    private static boolean isSameItem(final Object v1, final Object v2) {
+        if (v1 == null || v2 == null) {
+            return false;
+        }
+        return String.valueOf(v1).equals(String.valueOf(v2));
+    }
+
+    private static <ValueType> ValueType updateValue(final ValueType value, final Map<?, ?> properties
+            , final ObjectMapper mapper) {
+        copyProperties(value, properties, mapper);
+        return value;
     }
 
     /*
