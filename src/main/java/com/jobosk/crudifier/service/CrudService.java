@@ -6,6 +6,8 @@ import com.jobosk.crudifier.constant.CrudConstant;
 import com.jobosk.crudifier.entity.ICrudEntity;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.util.CopyUtil;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -240,9 +242,19 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
   private <T> boolean excludedFromFind(final Attribute<? super T, ?> attribute) {
     return Optional.ofNullable(attribute)
-        .map(Attribute::getJavaType)
-        .map(t -> t.getAnnotation(FindExcluded.class))
+        .map(Attribute::getJavaMember)
+        .map(Member::getDeclaringClass)
+        .map(dc -> getField(dc, attribute.getName()))
+        .map(f -> f.getAnnotation(FindExcluded.class))
         .isPresent();
+  }
+
+  private Field getField(final Class<?> fieldDeclaringClass, final String fieldName) {
+    try {
+      return fieldDeclaringClass.getDeclaredField(fieldName);
+    } catch (final NoSuchFieldException nsfe) {
+      return null;
+    }
   }
 
   private <T, R> Predicate buildPredicate(final CriteriaBuilder builder, final From<?, ?> from
