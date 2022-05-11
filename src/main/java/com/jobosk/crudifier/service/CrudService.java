@@ -303,6 +303,9 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
       , final ManagedType<T> modelType, final String property, final Object filterValue) {
     final SingularAttribute<T, R> attribute = (SingularAttribute<T, R>) modelType
         .getSingularAttribute(property);
+    if (excludedFromFind(attribute)) {
+      return null;
+    }
     return setAttribute(
         builder
         , path.get(attribute)
