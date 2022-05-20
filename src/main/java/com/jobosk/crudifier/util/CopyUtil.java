@@ -5,11 +5,10 @@ import com.jobosk.crudifier.entity.IHasIdentifier;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
@@ -24,49 +23,60 @@ public class CopyUtil {
 
   public static void copyProperties(final Object item, final Map<?, ?> props
       , final ObjectMapper mapper) {
-    copyProperties(item, props, new HashMap<>(), mapper);
-  }
-
-  public static void copyProperties(final Object item, final Map<?, ?> props
-      , final Map<Class<?>, Set<Object>> updatedIds, final ObjectMapper mapper) {
     final BeanWrapper itemWrapper = PropertyAccessorFactory.forBeanPropertyAccess(item);
     if (props != null) {
       props.entrySet().stream()
-          .filter(e -> e.getKey() instanceof String && itemWrapper
-              .isWritableProperty((String) e.getKey()))
-          .forEach(e -> setItemValue(
+          .filter(e -> canCopyProperty(itemWrapper, e.getKey()))
+          .forEach(e -> copyProperty(
               itemWrapper
               , (String) e.getKey()
               , e.getValue()
-              , updatedIds
               , mapper
           ));
     }
   }
 
-  private static void setItemValue(final BeanWrapper itemWrapper, final String key
-      , final Object value, final Map<Class<?>, Set<Object>> updatedIds
-      , final ObjectMapper mapper) {
+  private static boolean canCopyProperty(final BeanWrapper itemWrapper, final Object key) {
+    return key instanceof String && itemWrapper.isWritableProperty((String) key);
+  }
+
+  private static void copyProperty(final BeanWrapper itemWrapper, final String key
+      , final Object value, final ObjectMapper mapper) {
+
     final PropertyDescriptor propertyDescriptor = itemWrapper.getPropertyDescriptor(key);
+    final Class<?> valueType = propertyDescriptor.getPropertyType();
+    Object result = mapper.convertValue(value, valueType);
+
+    final boolean canUpdatePrevious = canUpdatePrevious(value.getClass(), valueType);
+
+    // Special treatment if the attribute its an identifiable entity
     final Object previousValue = itemWrapper.getPropertyValue(key);
-    final Object convertedValue = convertValue(
-        value
-        , propertyDescriptor
-        , previousValue
-        , updatedIds
-        , mapper
-    );
-    if (convertedValue instanceof Collection) {
-      itemWrapper.setPropertyValue(key, convertCollection(
-          (Class<?>) getItemType(propertyDescriptor)
-          , (Collection<?>) convertedValue
-          , (Collection<?>) previousValue
-          , updatedIds
+    if (previousValue != null && canUpdatePrevious) {
+      result = updatePreviousValue(
+          result
+          , previousValue
+          , ((IHasIdentifier<?>) previousValue).getId()
           , mapper
-      ));
-    } else {
-      itemWrapper.setPropertyValue(key, convertedValue);
+      );
     }
+
+    // Special treatment if the attribute its a collection
+    if (result instanceof Collection) {
+      result = copyCollection(
+          (Collection<?>) result
+          , (Collection<?>) previousValue
+          , (Class<?>) getItemType(propertyDescriptor)
+          , canUpdatePrevious
+          , mapper
+      );
+    }
+
+    itemWrapper.setPropertyValue(key, result);
+  }
+
+  private static boolean canUpdatePrevious(final Class<?> valueType, final Class<?> propertyType) {
+    return IHasIdentifier.class.isAssignableFrom(propertyType) && valueType
+        .isAssignableFrom(propertyType);
   }
 
   private static Type getItemType(final PropertyDescriptor propertyDescriptor) {
@@ -74,47 +84,13 @@ public class CopyUtil {
         .getActualTypeArguments()[0];
   }
 
-  private static <T> Object convertValue(final Object value
-      , final PropertyDescriptor propertyDescriptor, final T previousValue
-      , final Map<Class<?>, Set<Object>> updatedIds, final ObjectMapper mapper) {
-    final Class<?> valueType = propertyDescriptor.getPropertyType();
-    final Object result = mapper.convertValue(value, valueType);
-    if (previousValue != null && IHasIdentifier.class.isAssignableFrom(valueType)) {
-      return updatePreviousValue(
-          previousValue
-          , ((IHasIdentifier<?>) previousValue).getId()
-          , result
-          , updatedIds
-          , mapper
-      );
-    }
-    return result;
-  }
-
-  private static <T> T updatePreviousValue(final T previousValue, final Object previousValueId
-      , final T currentValue, final Map<Class<?>, Set<Object>> updatedIds
-      , final ObjectMapper mapper) {
+  private static <T> T updatePreviousValue(final T currentValue, final T previousValue
+      , final Object previousValueId, final ObjectMapper mapper) {
     final Map<?, ?> properties = mapper.convertValue(currentValue, Map.class);
-    if (canUpdatePreviousItem(
-        previousValueId
-        , properties.remove(PROPERTY_ID)
-        , updatedIds
-        , previousValue.getClass()
-    )) {
-      updatedIds
-          .computeIfAbsent(previousValue.getClass(), k -> new HashSet<>())
-          .add(previousValueId);
-      copyProperties(previousValue, properties, updatedIds, mapper);
+    if (isSameItem(previousValueId, properties.remove(PROPERTY_ID))) {
+      copyProperties(previousValue, properties, mapper);
     }
     return previousValue;
-  }
-
-  private static boolean canUpdatePreviousItem(final Object previousId, final Object id
-      , final Map<Class<?>, Set<Object>> updatedIds, final Class<?> previousType) {
-    final boolean previouslyUpdated = updatedIds
-        .getOrDefault(previousType, new HashSet<>())
-        .contains(previousId);
-    return isSameItem(previousId, id) && !previouslyUpdated;
   }
 
   private static boolean isSameItem(final Object v1, final Object v2) {
@@ -124,31 +100,41 @@ public class CopyUtil {
     return String.valueOf(v1).equals(String.valueOf(v2));
   }
 
-  private static <T> Collection<T> convertCollection(final Class<? extends T> itemType
-      , final Collection<?> convertedValues, final Collection<? extends T> previousValues
-      , final Map<Class<?>, Set<Object>> updatedIds, final ObjectMapper mapper) {
-    Collection<T> convertedCollection = new HashSet<>();
+  private static <T> Collection<T> copyCollection(final Collection<?> convertedValues
+      , final Collection<? extends T> previousValues, final Class<? extends T> itemType
+      , final boolean canUpdatePrevious, final ObjectMapper mapper) {
+
+    final List<T> result = new ArrayList<>();
     for (final Object v : convertedValues) {
-      convertedCollection.add(mapper.convertValue(v, itemType));
+      result.add(mapper.convertValue(v, itemType));
     }
-    if (IHasIdentifier.class.isAssignableFrom(itemType)) {
-      return updatedPreviousValues(convertedCollection, previousValues, updatedIds, mapper);
+
+    // Special treatment if the attribute is a collection of identifiable entities
+    if (canUpdatePrevious) {
+      return updateEntityCollection(result, previousValues, mapper);
     }
-    return convertedCollection;
+
+    return result;
   }
 
-  private static <T> Collection<T> updatedPreviousValues(final Collection<T> values
-      , final Collection<? extends T> previousValues, final Map<Class<?>, Set<Object>> updatedIds
+  private static <T> List<T> updateEntityCollection(final Collection<T> currentValues
+      , final Collection<? extends T> previousValues, final ObjectMapper mapper) {
+    return previousValues.parallelStream()
+        .map(pv -> updateEntity(
+            ((IHasIdentifier<?>) pv).getId()
+            , pv
+            , currentValues
+            , mapper
+        ))
+        .collect(Collectors.toList());
+  }
+
+  private static <T> T updateEntity(final Object valueId, final T value, final Collection<T> values
       , final ObjectMapper mapper) {
-    return previousValues.stream()
-        .map(pv -> {
-          final IHasIdentifier<?> previousValue = (IHasIdentifier<?>) pv;
-          return values.stream()
-              .filter(v -> previousValue.getId().equals(((IHasIdentifier<?>) v).getId()))
-              .findFirst()
-              .map(v -> updatePreviousValue(pv, previousValue.getId(), v, updatedIds, mapper))
-              .orElse(pv);
-        })
-        .collect(Collectors.toSet());
+    return values.stream()
+        .filter(v -> valueId != null && valueId.equals(((IHasIdentifier<?>) v).getId()))
+        .findFirst()
+        .map(v -> updatePreviousValue(v, value, valueId, mapper))
+        .orElse(value);
   }
 }
