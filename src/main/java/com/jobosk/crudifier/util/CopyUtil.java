@@ -1,7 +1,6 @@
 package com.jobosk.crudifier.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jobosk.crudifier.entity.IHasIdentifier;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -11,12 +10,6 @@ import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
 
 public class CopyUtil {
-
-  private static final String PROPERTY_ID = "id";
-
-  private CopyUtil() {
-
-  }
 
   public static void copyProperties(final Object item, final Map<?, ?> props
       , final ObjectMapper mapper) {
@@ -37,13 +30,11 @@ public class CopyUtil {
     itemWrapper.setPropertyValue(key, convertValue(
         value
         , itemWrapper.getPropertyDescriptor(key)
-        , itemWrapper.getPropertyValue(key)
         , mapper
     ));
   }
 
-  private static <T> Object convertValue(final Object value
-      , final PropertyDescriptor propertyDescriptor, final T previousValue
+  private static Object convertValue(final Object value, final PropertyDescriptor propertyDescriptor
       , final ObjectMapper mapper) {
     if (value == null) {
       return null;
@@ -51,18 +42,21 @@ public class CopyUtil {
     Object convertedValue = getValue(
         value
         , propertyDescriptor.getPropertyType()
-        , previousValue
         , mapper
     );
     if (!(convertedValue instanceof Collection)) {
       return convertedValue;
     }
     return convertCollection(
-        (Collection<T>) convertedValue
-        , (Class<T>) getItemType(propertyDescriptor)
-        , previousValue
+        (Collection) convertedValue
+        , (Class) getItemType(propertyDescriptor)
         , mapper
     );
+  }
+
+  private static <T> T getValue(final Object value, final Class<T> propertyType
+      , final ObjectMapper mapper) {
+    return mapper.convertValue(value, propertyType);
   }
 
   private static Type getItemType(final PropertyDescriptor propertyDescriptor) {
@@ -71,43 +65,16 @@ public class CopyUtil {
   }
 
   private static <T> Collection<T> convertCollection(final Collection<T> convertedValue
-      , final Class<T> itemType, final Object previousValue, final ObjectMapper mapper) {
+      , final Class<T> itemType, final ObjectMapper mapper) {
     Collection<T> convertedCollection;
     try {
       convertedCollection = convertedValue.getClass().getDeclaredConstructor().newInstance();
       for (final Object v : convertedValue) {
-        convertedCollection.add(getValue(v, itemType, previousValue, mapper));
+        convertedCollection.add(getValue(v, itemType, mapper));
       }
     } catch (final Exception e) {
       convertedCollection = null;
     }
     return convertedCollection;
-  }
-
-  private static <T> T getValue(final Object item, final Class<T> valueType
-      , final Object previousValue, final ObjectMapper mapper) {
-    if (IHasIdentifier.class.isAssignableFrom(valueType)) {
-      final Map<?, ?> properties = mapper.convertValue(item, Map.class);
-      if (isSameItem(
-          ((IHasIdentifier<?>) valueType.cast(previousValue)).getId()
-          , properties.remove(PROPERTY_ID)
-      )) {
-        return updateValue(valueType.cast(previousValue), properties, mapper);
-      }
-    }
-    return mapper.convertValue(item, valueType);
-  }
-
-  private static boolean isSameItem(final Object v1, final Object v2) {
-    if (v1 == null || v2 == null) {
-      return false;
-    }
-    return String.valueOf(v1).equals(String.valueOf(v2));
-  }
-
-  private static <T> T updateValue(final T value, final Map<?, ?> properties
-      , final ObjectMapper mapper) {
-    copyProperties(value, properties, mapper);
-    return value;
   }
 }
