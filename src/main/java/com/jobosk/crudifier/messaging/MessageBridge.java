@@ -12,6 +12,6 @@ public class MessageBridge<T> {
   }
 
   public void pushMessage(final T message) {
-    this.processor.sink().next(message);
+    this.processor.onNext(message);
   }
 }
