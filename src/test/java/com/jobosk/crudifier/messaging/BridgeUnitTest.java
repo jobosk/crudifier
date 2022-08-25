@@ -10,7 +10,7 @@ import reactor.core.publisher.FluxSink;
 class BridgeUnitTest {
 
   @Test
-  void shouldUseBackPressureBufferStrategy() {
+  void internalSink_isOk() {
     final EmitterProcessor<String> processor = EmitterProcessor.create();
     final FluxSink<String> sink = processor.sink();
     sink.next("test");
@@ -18,7 +18,7 @@ class BridgeUnitTest {
   }
 
   @Test
-  void shouldPublishElementsIntoSink() {
+  void publish_isOk() {
     final MessageBridge<String> bridge = new MessageBridge<>();
     bridge.pushMessage("test");
     assertEquals("test", bridge.getMessageSupplier().blockFirst(Duration.ofMillis(1000L)));
