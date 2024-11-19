@@ -5,7 +5,7 @@ import com.jobosk.crudifier.annotation.FindExcluded;
 import com.jobosk.crudifier.constant.CrudConstant;
 import com.jobosk.crudifier.entity.ICrudEntity;
 import com.jobosk.crudifier.repository.GenericRepository;
-import com.jobosk.crudifier.util.CopyUtil;
+import com.jobosk.crudifier.util.ModelUtil;
 import org.hibernate.query.criteria.internal.expression.ExpressionImpl;
 import org.hibernate.query.criteria.internal.expression.function.CastFunction;
 import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
@@ -478,7 +478,7 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     @Override
     @Transactional
     public Entity update(final Entity entity, final Map<String, Object> fields) {
-        CopyUtil.copyProperties(entity, fields, mapper);
+        ModelUtil.copyProperties(entity, fields, mapper);
         return update(entity);
     }
 
