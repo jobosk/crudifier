@@ -259,10 +259,14 @@ public abstract class ModelUtil {
                     if (convertedValue instanceof Collection) {
                         final Collection<?> collection = (Collection<?>) convertedValue;
                         final Class type = (Class) getItemType(propertyDescriptor);
-                        groupById(itemWrapper.getPropertyValue(key), mapper)
-                                .map(previousValues -> copyCollectionValues(collection, previousValues, type, mapper))
-                                .or(() -> convertCollection(collection, type, mapper))
-                                .ifPresent(v -> itemWrapper.setPropertyValue(key, v));
+                        final Collection<Object> collectionValues = copyCollectionValues(
+                                collection
+                                , itemWrapper.getPropertyValue(key)
+                                , type
+                                , mapper
+                        );
+                        itemWrapper.setPropertyValue(key, collectionValues);
+                        //itemWrapper.setPropertyValue(key, convertCollection(collection, type, mapper));
                     } else {
                         itemWrapper.setPropertyValue(key, convertedValue);
                     }
@@ -284,7 +288,9 @@ public abstract class ModelUtil {
     }
 
     private static <T> Collection<T> copyCollectionValues(final Collection<?> collectionValues
-            , final Map<UUID, Object> previousValues, final Class<T> type, final ObjectMapper mapper) {
+            , final Object propertyValue, final Class<T> type, final ObjectMapper mapper) {
+        final Map<UUID, Object> previousValues = groupById(propertyValue, mapper)
+                .orElse(new HashMap<>());
         final List<T> result = new ArrayList<>();
         for (final Object collectionValue : collectionValues) {
             getItemAttributes(collectionValue, mapper)
