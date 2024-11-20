@@ -101,6 +101,28 @@ public abstract class ModelUtil {
                 .collect(Collectors.toList());
     }
 
+    public static <T extends IHasIdentifier<UUID>, R> void setTransientValuesInArray(final List<T> currentItems
+            , final Map<String, Object> attributes, final String arrayField, final String transientField
+            , final Function<UUID, Optional<R>> getter, final BiConsumer<T, R> setter
+            , final Consumer<T> reflexiveAction, final String recursionField
+            , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter
+            , final Class<T> type, final Supplier<T> builder, final ObjectMapper mapper) {
+        final Collection<?> items = Optional.ofNullable(attributes.remove(arrayField))
+                .filter(Collection.class::isInstance)
+                .map(Collection.class::cast)
+                .orElse(new ArrayList<>());
+        if (items.isEmpty() && !currentItems.isEmpty()) {
+            attributes.put(arrayField, items);
+        } else {
+            final List<Object> sameProductItems = ModelUtil.setTransientField(currentItems, items, transientField
+                    , getter, setter, reflexiveAction, recursionField, recursiveGetter, recursiveSetter
+                    , type, builder, mapper);
+            if (!sameProductItems.isEmpty()) {
+                attributes.put(arrayField, sameProductItems);
+            }
+        }
+    }
+
     public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientField(final List<T> currentItems
             , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final Class<T> type
@@ -235,53 +257,52 @@ public abstract class ModelUtil {
         getValue(value, propertyDescriptor.getPropertyType(), mapper)
                 .ifPresent(convertedValue -> {
                     if (convertedValue instanceof Collection) {
-                        final Collection<?> notCopied = copyCollectionValues(
-                                (Collection<?>) convertedValue
-                                , itemWrapper.getPropertyValue(key)
-                                , mapper
-                        );
-                        if (!notCopied.isEmpty()) {
-                            final Collection<?> convertedCollection = convertCollection(
-                                    notCopied
-                                    , (Class) getItemType(propertyDescriptor)
-                                    , mapper
-                            );
-                            itemWrapper.setPropertyValue(key, convertedCollection);
-                        }
+                        final Collection<?> collection = (Collection<?>) convertedValue;
+                        final Class type = (Class) getItemType(propertyDescriptor);
+                        groupById(itemWrapper.getPropertyValue(key), mapper)
+                                .map(previousValues -> copyCollectionValues(collection, previousValues, type, mapper))
+                                .or(() -> convertCollection(collection, type, mapper))
+                                .ifPresent(v -> itemWrapper.setPropertyValue(key, v));
                     } else {
                         itemWrapper.setPropertyValue(key, convertedValue);
                     }
                 });
     }
 
-    private static Collection<?> copyCollectionValues(final Collection<?> collectionValues, final Object propertyValue
+    private static Optional<Map<UUID, Object>> groupById(final Object propertyValue
             , final ObjectMapper mapper) {
-        final List<?> notCopied = new ArrayList<>(collectionValues);
-        Optional.ofNullable(propertyValue)
+        return Optional.ofNullable(propertyValue)
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
-                .ifPresent(values -> {
+                .map(values -> {
                     final Map<UUID, Object> previousValues = new HashMap<>();
                     values.forEach(value -> getId(value, mapper)
                             .ifPresent(id -> previousValues.put(id, value))
                     );
-                    values.clear();
-                    for (final Object collectionValue : collectionValues) {
-                        getItemAttributes(collectionValue, mapper)
-                                .flatMap(collectionItem -> FormatUtil.getUUID(collectionItem.get("id"))
-                                        .map(previousValues::get)
-                                        .map(currentValue -> {
-                                            copyProperties(currentValue, collectionItem, mapper);
-                                            return currentValue;
-                                        })
-                                )
-                                .ifPresent(value -> {
-                                    values.add(value);
-                                    notCopied.remove(collectionValue);
-                                });
-                    }
+                    return previousValues;
                 });
-        return notCopied;
+    }
+
+    private static <T> Collection<T> copyCollectionValues(final Collection<?> collectionValues
+            , final Map<UUID, Object> previousValues, final Class<T> type, final ObjectMapper mapper) {
+        final List<T> result = new ArrayList<>();
+        for (final Object collectionValue : collectionValues) {
+            getItemAttributes(collectionValue, mapper)
+                    .flatMap(collectionItem -> FormatUtil.getUUID(collectionItem.get("id"))
+                            .map(previousValues::get)
+                            .map(currentValue -> {
+                                copyProperties(currentValue, collectionItem, mapper);
+                                return currentValue;
+                            })
+                    )
+                    .map(type::cast)
+                    .ifPresentOrElse(
+                            result::add
+                            , () -> getValue(collectionValue, type, mapper)
+                                    .ifPresent(result::add)
+                    );
+        }
+        return result;
     }
 
     private static Optional<Map> getItemAttributes(final Object item, final ObjectMapper mapper) {
@@ -314,18 +335,17 @@ public abstract class ModelUtil {
                 .getActualTypeArguments()[0];
     }
 
-    private static <T> Collection<T> convertCollection(final Collection<T> convertedValue, final Class<T> itemType
+    private static <T> Optional<Collection<T>> convertCollection(final Collection<T> convertedValue, final Class<T> itemType
             , final ObjectMapper mapper) {
-        Collection<T> convertedCollection;
         try {
-            convertedCollection = convertedValue.getClass().getDeclaredConstructor().newInstance();
+            final Collection<T> convertedCollection = convertedValue.getClass().getDeclaredConstructor().newInstance();
             for (final Object v : convertedValue) {
                 getValue(v, itemType, mapper)
                         .ifPresent(convertedCollection::add);
             }
+            return Optional.of(convertedValue);
         } catch (final Exception e) {
-            convertedCollection = null;
+            return Optional.empty();
         }
-        return convertedCollection;
     }
 }
