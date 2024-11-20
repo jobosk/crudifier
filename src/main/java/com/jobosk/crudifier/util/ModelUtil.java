@@ -266,36 +266,22 @@ public abstract class ModelUtil {
                                 , mapper
                         );
                         itemWrapper.setPropertyValue(key, collectionValues);
-                        //itemWrapper.setPropertyValue(key, convertCollection(collection, type, mapper));
                     } else {
                         itemWrapper.setPropertyValue(key, convertedValue);
                     }
                 });
     }
 
-    private static Optional<Map<UUID, Object>> groupById(final Object propertyValue
-            , final ObjectMapper mapper) {
-        return Optional.ofNullable(propertyValue)
-                .filter(Collection.class::isInstance)
-                .map(Collection.class::cast)
-                .map(values -> {
-                    final Map<UUID, Object> previousValues = new HashMap<>();
-                    values.forEach(value -> getId(value, mapper)
-                            .ifPresent(id -> previousValues.put(id, value))
-                    );
-                    return previousValues;
-                });
-    }
-
-    private static <T> Collection<T> copyCollectionValues(final Collection<?> collectionValues
+    private static <T extends IHasIdentifier<UUID>> Collection<T> copyCollectionValues(final Collection<?> values
             , final Object propertyValue, final Class<T> type, final ObjectMapper mapper) {
-        final Map<UUID, Object> previousValues = groupById(propertyValue, mapper)
-                .orElse(new HashMap<>());
+        final Map<UUID, T> previousValuesById = new HashMap<>();
+        final List<T> previousValuesWithoutId = new ArrayList<>();
+        groupById(propertyValue, type, previousValuesById, previousValuesWithoutId);
         final List<T> result = new ArrayList<>();
-        for (final Object collectionValue : collectionValues) {
-            getItemAttributes(collectionValue, mapper)
+        for (final Object value : values) {
+            getItemAttributes(value, mapper)
                     .flatMap(collectionItem -> FormatUtil.getUUID(collectionItem.get("id"))
-                            .map(previousValues::get)
+                            .map(previousValuesById::get)
                             .map(currentValue -> {
                                 copyProperties(currentValue, collectionItem, mapper);
                                 return currentValue;
@@ -304,11 +290,34 @@ public abstract class ModelUtil {
                     .map(type::cast)
                     .ifPresentOrElse(
                             result::add
-                            , () -> getValue(collectionValue, type, mapper)
+                            , () -> getValue(value, type, mapper)
                                     .ifPresent(result::add)
                     );
         }
+        convertCollection(previousValuesWithoutId, type, mapper)
+                .ifPresent(result::addAll);
         return result;
+    }
+
+    private static <T extends IHasIdentifier<UUID>> void groupById(final Object propertyValue, final Class<T> type
+            , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
+        Optional.ofNullable(propertyValue)
+                .filter(Collection.class::isInstance)
+                .map(Collection.class::cast)
+                .ifPresent(values -> values.forEach(value -> groupByIds(
+                        type.cast(value)
+                        , previousValuesById
+                        , previousValuesWithoutId
+                )));
+    }
+
+    private static <T extends IHasIdentifier<UUID>> void groupByIds(final T value
+            , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
+        Optional.ofNullable(value.getId())
+                .ifPresentOrElse(
+                        id -> previousValuesById.put(id, value)
+                        , () -> previousValuesWithoutId.add(value)
+                );
     }
 
     private static Optional<Map> getItemAttributes(final Object item, final ObjectMapper mapper) {
