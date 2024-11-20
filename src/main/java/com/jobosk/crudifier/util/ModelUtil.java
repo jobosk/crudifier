@@ -272,11 +272,11 @@ public abstract class ModelUtil {
                 });
     }
 
-    private static <T extends IHasIdentifier<UUID>> Collection<T> copyCollectionValues(final Collection<?> values
+    private static <T> Collection<T> copyCollectionValues(final Collection<?> values
             , final Object propertyValue, final Class<T> type, final ObjectMapper mapper) {
         final Map<UUID, T> previousValuesById = new HashMap<>();
         final List<T> previousValuesWithoutId = new ArrayList<>();
-        groupById(propertyValue, type, previousValuesById, previousValuesWithoutId);
+        groupById(propertyValue, type, mapper, previousValuesById, previousValuesWithoutId);
         final List<T> result = new ArrayList<>();
         for (final Object value : values) {
             getItemAttributes(value, mapper)
@@ -299,21 +299,22 @@ public abstract class ModelUtil {
         return result;
     }
 
-    private static <T extends IHasIdentifier<UUID>> void groupById(final Object propertyValue, final Class<T> type
+    private static <T> void groupById(final Object propertyValue, final Class<T> type, final ObjectMapper mapper
             , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
         Optional.ofNullable(propertyValue)
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
                 .ifPresent(values -> values.forEach(value -> groupByIds(
                         type.cast(value)
+                        , mapper
                         , previousValuesById
                         , previousValuesWithoutId
                 )));
     }
 
-    private static <T extends IHasIdentifier<UUID>> void groupByIds(final T value
+    private static <T> void groupByIds(final T value, final ObjectMapper mapper
             , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
-        Optional.ofNullable(value.getId())
+        getId(value, mapper)
                 .ifPresentOrElse(
                         id -> previousValuesById.put(id, value)
                         , () -> previousValuesWithoutId.add(value)
@@ -328,6 +329,9 @@ public abstract class ModelUtil {
     }
 
     private static Optional<UUID> getId(final Object currentValue, final ObjectMapper mapper) {
+        if (currentValue instanceof IHasIdentifier) {
+            return FormatUtil.getUUID(((IHasIdentifier<?>) currentValue).getId());
+        }
         try {
             final Map<?, ?> map = mapper.convertValue(currentValue, Map.class);
             return Optional.ofNullable(map.get("id"))
