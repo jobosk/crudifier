@@ -114,11 +114,11 @@ public abstract class ModelUtil {
         if (items.isEmpty() && !currentItems.isEmpty()) {
             attributes.put(arrayField, items);
         } else {
-            final List<Object> sameProductItems = ModelUtil.setTransientField(currentItems, items, transientField
+            final List<Object> result = ModelUtil.setTransientField(currentItems, items, transientField
                     , getter, setter, reflexiveAction, recursionField, recursiveGetter, recursiveSetter
                     , type, builder, mapper);
-            if (!sameProductItems.isEmpty()) {
-                attributes.put(arrayField, sameProductItems);
+            if (!result.isEmpty()) {
+                attributes.put(arrayField, result);
             }
         }
     }
@@ -136,7 +136,7 @@ public abstract class ModelUtil {
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
             , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter, final Class<T> type
             , final Supplier<T> builder, final ObjectMapper mapper) {
-        final List<Object> sameProductItems = new ArrayList<>();
+        final List<Object> result = new ArrayList<>();
         final Map<UUID, T> currentItemsById = currentItems.stream()
                 .collect(Collectors.toMap(
                         T::getId
@@ -154,30 +154,32 @@ public abstract class ModelUtil {
                         , recursionField
                         , recursiveGetter
                         , recursiveSetter
-                        , () -> sameProductItems.add(newItem)
                         , type
                         , builder
                         , mapper
+                ).ifPresentOrElse(
+                        result::add
+                        , () -> result.add(newItem)
                 );
             } else {
                 FormatUtil.getUUID(newItem)
-                        .ifPresent(sameProductItems::add);
+                        .ifPresent(result::add);
             }
         }
-        return sameProductItems;
+        return result;
     }
 
-    private static <T extends IHasIdentifier<UUID>, R> void updateTransientFields(final Map<String, Object> map
+    private static <T extends IHasIdentifier<UUID>, R> Optional<UUID> updateTransientFields(final Map<String, Object> map
             , final Map<UUID, T> currentItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
             , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter
-            , final Runnable fallbackAction, final Class<T> type, final Supplier<T> builder, final ObjectMapper mapper) {
-        Optional.ofNullable(map.remove(transientField))
+            , final Class<T> type, final Supplier<T> builder, final ObjectMapper mapper) {
+        return Optional.ofNullable(map.remove(transientField))
                 .flatMap(FormatUtil::getUUID)
                 .flatMap(getter)
                 .map(product -> {
                     final T item = getOrCreateItem(
-                            map.remove("id")
+                            map.get("id")
                             , currentItems
                             , type
                             , builder
@@ -186,40 +188,38 @@ public abstract class ModelUtil {
                     setter.accept(item, product);
                     return item;
                 })
-                .ifPresentOrElse(
-                        i -> {
-                            if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
-                                final Collection<?> children = Optional.ofNullable(map.remove(recursionField))
-                                        .filter(Collection.class::isInstance)
-                                        .map(Collection.class::cast)
-                                        .orElse(new ArrayList<>());
-                                final List<T> currentChildren = recursiveGetter.apply(i);
-                                if (children.isEmpty() && !currentChildren.isEmpty()) {
-                                    map.put(recursionField, children);
-                                } else {
-                                    final List<Object> sameProductChildren = setTransientField(
-                                            currentChildren
-                                            , children
-                                            , transientField
-                                            , getter
-                                            , setter
-                                            , c -> recursiveSetter.accept(i, c)
-                                            , recursionField
-                                            , recursiveGetter
-                                            , recursiveSetter
-                                            , type
-                                            , builder
-                                            , mapper
-                                    );
-                                    if (!sameProductChildren.isEmpty()) {
-                                        map.put(recursionField, sameProductChildren);
-                                    }
-                                }
+                .map(i -> {
+                    if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
+                        final Collection<?> children = Optional.ofNullable(map.remove(recursionField))
+                                .filter(Collection.class::isInstance)
+                                .map(Collection.class::cast)
+                                .orElse(new ArrayList<>());
+                        final List<T> currentChildren = recursiveGetter.apply(i);
+                        if (children.isEmpty() && !currentChildren.isEmpty()) {
+                            map.put(recursionField, children);
+                        } else {
+                            final List<Object> sameProductChildren = setTransientField(
+                                    currentChildren
+                                    , children
+                                    , transientField
+                                    , getter
+                                    , setter
+                                    , c -> recursiveSetter.accept(i, c)
+                                    , recursionField
+                                    , recursiveGetter
+                                    , recursiveSetter
+                                    , type
+                                    , builder
+                                    , mapper
+                            );
+                            if (!sameProductChildren.isEmpty()) {
+                                map.put(recursionField, sameProductChildren);
                             }
-                            copyProperties(i, map, mapper);
                         }
-                        , fallbackAction
-                );
+                    }
+                    copyProperties(i, map, mapper);
+                    return i.getId();
+                });
     }
 
     public static <T extends IHasIdentifier<UUID>> T getOrCreateItem(final Object itemId, final Map<UUID, T> currentItems
