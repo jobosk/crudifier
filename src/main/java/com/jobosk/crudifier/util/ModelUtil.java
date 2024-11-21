@@ -169,7 +169,7 @@ public abstract class ModelUtil {
         return result;
     }
 
-    private static <T extends IHasIdentifier<UUID>, R> Optional<UUID> updateTransientFields(final Map<String, Object> map
+    private static <T extends IHasIdentifier<UUID>, R> Optional<T> updateTransientFields(final Map<String, Object> map
             , final Map<UUID, T> currentItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
             , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter
@@ -218,7 +218,7 @@ public abstract class ModelUtil {
                         }
                     }
                     copyProperties(i, map, mapper);
-                    return i.getId();
+                    return i;
                 });
     }
 
