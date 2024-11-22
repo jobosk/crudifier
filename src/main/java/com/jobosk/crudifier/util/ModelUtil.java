@@ -101,7 +101,7 @@ public abstract class ModelUtil {
                 .collect(Collectors.toList());
     }
 
-    public static <T extends IHasIdentifier<UUID>, R> void setTransientValuesInArray(final List<T> currentItems
+    public static <T extends IHasIdentifier<UUID>, R> void setTransientFieldsInArray(final List<T> currentItems
             , final Map<String, Object> attributes, final String arrayField, final String transientField
             , final Function<UUID, Optional<R>> getter, final BiConsumer<T, R> setter
             , final Consumer<T> reflexiveAction, final String recursionField
@@ -114,7 +114,7 @@ public abstract class ModelUtil {
         if (items.isEmpty() && !currentItems.isEmpty()) {
             attributes.put(arrayField, items);
         } else {
-            final List<Object> result = ModelUtil.setTransientField(currentItems, items, transientField
+            final List<Object> result = ModelUtil.setTransientFields(currentItems, items, transientField
                     , getter, setter, reflexiveAction, recursionField, recursiveGetter, recursiveSetter
                     , type, builder, mapper);
             if (!result.isEmpty()) {
@@ -123,25 +123,22 @@ public abstract class ModelUtil {
         }
     }
 
-    public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientField(final List<T> currentItems
+    public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
             , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final Class<T> type
             , final Supplier<T> builder, final ObjectMapper mapper) {
-        return setTransientField(currentItems, newItems, transientField, getter, setter, reflexiveAction
+        return setTransientFields(currentItems, newItems, transientField, getter, setter, reflexiveAction
                 , null, null, null, type, builder, mapper);
     }
 
-    public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientField(final List<T> currentItems
+    public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
             , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
             , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter, final Class<T> type
             , final Supplier<T> builder, final ObjectMapper mapper) {
-        final List<Object> result = new ArrayList<>();
         final Map<UUID, T> currentItemsById = currentItems.stream()
-                .collect(Collectors.toMap(
-                        T::getId
-                        , i -> i
-                ));
+                .collect(Collectors.toMap(T::getId, i -> i));
+        final List<Object> result = new ArrayList<>();
         for (final Object newItem : newItems) {
             if (newItem instanceof Map) {
                 updateTransientFields(
@@ -158,7 +155,8 @@ public abstract class ModelUtil {
                         , builder
                         , mapper
                 ).ifPresentOrElse(
-                        result::add
+                        item -> Optional.ofNullable(item.getId())
+                                .ifPresent(result::add)
                         , () -> result.add(newItem)
                 );
             } else {
@@ -178,18 +176,28 @@ public abstract class ModelUtil {
                 .flatMap(FormatUtil::getUUID)
                 .flatMap(getter)
                 .map(product -> {
-                    final T item = getOrCreateItem(
-                            map.get("id")
-                            , currentItems
-                            , type
-                            , builder
-                            , reflexiveAction
-                    );
+                    final T item = getOrCreateItem(map.remove("id"), currentItems, type, builder, reflexiveAction);
                     setter.accept(item, product);
                     return item;
                 })
                 .map(i -> {
                     if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
+                        setTransientFieldsInArray(
+                                recursiveGetter.apply(i)
+                                , map
+                                , recursionField
+                                , transientField
+                                , getter
+                                , setter
+                                , c -> recursiveSetter.accept(i, c)
+                                , recursionField
+                                , recursiveGetter
+                                , recursiveSetter
+                                , type
+                                , builder
+                                , mapper
+                        );
+                        /*
                         final Collection<?> children = Optional.ofNullable(map.remove(recursionField))
                                 .filter(Collection.class::isInstance)
                                 .map(Collection.class::cast)
@@ -198,7 +206,7 @@ public abstract class ModelUtil {
                         if (children.isEmpty() && !currentChildren.isEmpty()) {
                             map.put(recursionField, children);
                         } else {
-                            final List<Object> sameProductChildren = setTransientField(
+                            final List<Object> sameProductChildren = setTransientFields(
                                     currentChildren
                                     , children
                                     , transientField
@@ -216,6 +224,7 @@ public abstract class ModelUtil {
                                 map.put(recursionField, sameProductChildren);
                             }
                         }
+                        */
                     }
                     copyProperties(i, map, mapper);
                     return i;
