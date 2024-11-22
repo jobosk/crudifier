@@ -23,7 +23,7 @@ public abstract class ModelUtil {
 
     public static <Entity extends IHasIdentifier<UUID>, Source> void setFromOne(final Source source, final Entity previous, final Entity current
             , final boolean reverse, final TriConsumer<Entity, Source, Boolean> setter) {
-        setFromOne(
+        ModelUtil.setFromOne(
                 previous
                 , current
                 , reverse
@@ -37,7 +37,7 @@ public abstract class ModelUtil {
         Optional.ofNullable(current)
                 .ifPresent(c -> {
                     Optional.ofNullable(previous)
-                            .filter(p -> !sameIds(p, c))
+                            .filter(p -> !ModelUtil.sameIds(p, c))
                             .ifPresent(previousClear);
                     if (reverse) {
                         currentReverse.accept(c);
@@ -57,7 +57,7 @@ public abstract class ModelUtil {
 
     public static <Entity extends IHasIdentifier<UUID>, Source> void setFromMany(final Source source, final Entity current
             , final boolean reverse, final TriConsumer<Entity, Source, Boolean> setter) {
-        setFromMany(
+        ModelUtil.setFromMany(
                 current
                 , reverse
                 , curr -> setter.accept(curr, source, false)
@@ -83,10 +83,10 @@ public abstract class ModelUtil {
     }
 
     public static boolean isReadOnly(final Field field) {
-        if (!getAnnotations(field, JsonIgnore.class).isEmpty()) {
+        if (!ModelUtil.getAnnotations(field, JsonIgnore.class).isEmpty()) {
             return true;
         }
-        final List<JsonProperty> annotations = getAnnotations(field, JsonProperty.class);
+        final List<JsonProperty> annotations = ModelUtil.getAnnotations(field, JsonProperty.class);
         if (annotations.isEmpty()) {
             return false;
         }
@@ -127,7 +127,7 @@ public abstract class ModelUtil {
             , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final Class<T> type
             , final Supplier<T> builder, final ObjectMapper mapper) {
-        return setTransientFields(currentItems, newItems, transientField, getter, setter, reflexiveAction
+        return ModelUtil.setTransientFields(currentItems, newItems, transientField, getter, setter, reflexiveAction
                 , null, null, null, type, builder, mapper);
     }
 
@@ -141,7 +141,7 @@ public abstract class ModelUtil {
         final List<Object> result = new ArrayList<>();
         for (final Object newItem : newItems) {
             if (newItem instanceof Map) {
-                updateTransientFields(
+                ModelUtil.updateTransientFields(
                         (Map<String, Object>) newItem
                         , currentItemsById
                         , transientField
@@ -176,13 +176,13 @@ public abstract class ModelUtil {
                 .flatMap(FormatUtil::getUUID)
                 .flatMap(getter)
                 .map(product -> {
-                    final T item = getOrCreateItem(map.remove("id"), currentItems, type, builder, reflexiveAction);
+                    final T item = ModelUtil.getOrCreateItem(map.remove("id"), currentItems, type, builder, reflexiveAction);
                     setter.accept(item, product);
                     return item;
                 })
                 .map(i -> {
                     if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
-                        setTransientFieldsInArray(
+                        ModelUtil.setTransientFieldsInArray(
                                 recursiveGetter.apply(i)
                                 , map
                                 , recursionField
@@ -226,7 +226,7 @@ public abstract class ModelUtil {
                         }
                         */
                     }
-                    copyProperties(i, map, mapper);
+                    ModelUtil.copyProperties(i, map, mapper);
                     return i;
                 });
     }
@@ -248,8 +248,8 @@ public abstract class ModelUtil {
         final BeanWrapper itemWrapper = PropertyAccessorFactory.forBeanPropertyAccess(item);
         if (props != null) {
             props.entrySet().stream()
-                    .filter(e -> canCopyProperty(itemWrapper, e.getKey()))
-                    .forEach(e -> copyProperty(itemWrapper, (String) e.getKey(), e.getValue(), mapper));
+                    .filter(e -> ModelUtil.canCopyProperty(itemWrapper, e.getKey()))
+                    .forEach(e -> ModelUtil.copyProperty(itemWrapper, (String) e.getKey(), e.getValue(), mapper));
         }
     }
 
@@ -263,12 +263,12 @@ public abstract class ModelUtil {
             return;
         }
         final PropertyDescriptor propertyDescriptor = itemWrapper.getPropertyDescriptor(key);
-        getValue(value, propertyDescriptor.getPropertyType(), mapper)
+        ModelUtil.getValue(value, propertyDescriptor.getPropertyType(), mapper)
                 .ifPresent(convertedValue -> {
                     if (convertedValue instanceof Collection) {
                         final Collection<?> collection = (Collection<?>) convertedValue;
-                        final Class type = (Class) getItemType(propertyDescriptor);
-                        final Collection<Object> collectionValues = copyCollectionValues(
+                        final Class type = (Class) ModelUtil.getItemType(propertyDescriptor);
+                        final Collection<Object> collectionValues = ModelUtil.copyCollectionValues(
                                 collection
                                 , itemWrapper.getPropertyValue(key)
                                 , type
@@ -285,25 +285,25 @@ public abstract class ModelUtil {
             , final Object propertyValue, final Class<T> type, final ObjectMapper mapper) {
         final Map<UUID, T> previousValuesById = new HashMap<>();
         final List<T> previousValuesWithoutId = new ArrayList<>();
-        groupById(propertyValue, type, mapper, previousValuesById, previousValuesWithoutId);
+        ModelUtil.groupById(propertyValue, type, mapper, previousValuesById, previousValuesWithoutId);
         final List<T> result = new ArrayList<>();
         for (final Object value : values) {
-            getItemAttributes(value, mapper)
+            ModelUtil.getItemAttributes(value, mapper)
                     .flatMap(collectionItem -> FormatUtil.getUUID(collectionItem.get("id"))
                             .map(previousValuesById::get)
                             .map(currentValue -> {
-                                copyProperties(currentValue, collectionItem, mapper);
+                                ModelUtil.copyProperties(currentValue, collectionItem, mapper);
                                 return currentValue;
                             })
                     )
                     .map(type::cast)
                     .ifPresentOrElse(
                             result::add
-                            , () -> getValue(value, type, mapper)
+                            , () -> ModelUtil.getValue(value, type, mapper)
                                     .ifPresent(result::add)
                     );
         }
-        convertCollection(previousValuesWithoutId, type, mapper)
+        ModelUtil.convertCollection(previousValuesWithoutId, type, mapper)
                 .ifPresent(result::addAll);
         return result;
     }
@@ -313,7 +313,7 @@ public abstract class ModelUtil {
         Optional.ofNullable(propertyValue)
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
-                .ifPresent(values -> values.forEach(value -> groupByIds(
+                .ifPresent(values -> values.forEach(value -> ModelUtil.groupByIds(
                         type.cast(value)
                         , mapper
                         , previousValuesById
@@ -323,7 +323,7 @@ public abstract class ModelUtil {
 
     private static <T> void groupByIds(final T value, final ObjectMapper mapper
             , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
-        getId(value, mapper)
+        ModelUtil.getId(value, mapper)
                 .ifPresentOrElse(
                         id -> previousValuesById.put(id, value)
                         , () -> previousValuesWithoutId.add(value)
@@ -334,7 +334,7 @@ public abstract class ModelUtil {
         return Optional.ofNullable(item)
                 .filter(Map.class::isInstance)
                 .map(Map.class::cast)
-                .or(() -> getValue(item, Map.class, mapper));
+                .or(() -> ModelUtil.getValue(item, Map.class, mapper));
     }
 
     private static Optional<UUID> getId(final Object currentValue, final ObjectMapper mapper) {
@@ -368,7 +368,7 @@ public abstract class ModelUtil {
         try {
             final Collection<T> convertedCollection = convertedValue.getClass().getDeclaredConstructor().newInstance();
             for (final Object v : convertedValue) {
-                getValue(v, itemType, mapper)
+                ModelUtil.getValue(v, itemType, mapper)
                         .ifPresent(convertedCollection::add);
             }
             return Optional.of(convertedValue);
