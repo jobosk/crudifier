@@ -278,57 +278,55 @@ public abstract class ModelUtil {
                 });
     }
 
-    private static <T> Collection<T> copyCollectionValues(final Collection<?> values
-            , final Object propertyValue, final Class<T> type, final ObjectMapper mapper) {
+    private static <T> Collection<T> copyCollectionValues(final Collection<?> newValues
+            , final Object currentValues, final Class<T> type, final ObjectMapper mapper) {
         final List<T> result = new ArrayList<>();
-        final Map<UUID, T> previousValuesById = new HashMap<>();
-        final List<T> previousValuesWithoutId = new ArrayList<>();
-        ModelUtil.groupById(propertyValue, type, previousValuesById, previousValuesWithoutId);
-        for (final Object value : values) {
-            ModelUtil.getItemAttributes(value, mapper)
-                    .flatMap(collectionItem -> FormatUtil.getUUID(collectionItem.get("id"))
-                            .map(previousValuesById::get)
-                            .map(currentValue -> {
-                                ModelUtil.copyProperties(currentValue, collectionItem, mapper);
-                                return currentValue;
-                            })
-                    )
-                    .map(type::cast)
-                    .ifPresentOrElse(
-                            result::add
-                            , () -> ModelUtil.getValue(value, type, mapper)
-                                    .ifPresent(result::add)
-                    );
-        }
-        ModelUtil.convertCollection(previousValuesWithoutId, type, mapper)
-                .ifPresent(result::addAll);
-        return result;
-    }
-
-    private static <T> void groupById(final Object propertyValue, final Class<T> type
-            , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
-        Optional.ofNullable(propertyValue)
+        Optional.ofNullable(currentValues)
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
                 .ifPresent(values -> {
-                    for (final Object value : values) {
-                        ModelUtil.groupByIds(type.cast(value), previousValuesById, previousValuesWithoutId);
+                    final Map<UUID, T> currentValuesById = new HashMap<>();
+                    final List<T> currentValuesWithoutId = new ArrayList<>();
+                    ModelUtil.groupById(values, type, currentValuesById, currentValuesWithoutId);
+                    for (final Object value : newValues) {
+                        ModelUtil.getItemAttributes(value, mapper)
+                                .flatMap(attributes -> FormatUtil.getUUID(attributes.get("id"))
+                                        .map(currentValuesById::get)
+                                        .map(currentValue -> {
+                                            ModelUtil.copyProperties(currentValue, attributes, mapper);
+                                            return currentValue;
+                                        })
+                                )
+                                .map(type::cast)
+                                .ifPresentOrElse(
+                                        result::add
+                                        , () -> ModelUtil.getValue(value, type, mapper)
+                                                .ifPresent(result::add)
+                                );
                     }
+                    ModelUtil.convertCollection(currentValuesWithoutId, type, mapper)
+                            .ifPresent(result::addAll);
                 });
+        return result;
+    }
+
+    private static <T> void groupById(final Collection<?> currentValues, final Class<T> type
+            , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
+        if (IHasCrudId.class.isAssignableFrom(type)) {
+            for (final Object value : currentValues) {
+                ModelUtil.groupByIds(type.cast(value), previousValuesById, previousValuesWithoutId);
+            }
+        }
     }
 
     private static <T> void groupByIds(final T value, final Map<UUID, T> previousValuesById
             , final List<T> previousValuesWithoutId) {
-        if (IHasCrudId.class.isAssignableFrom(value.getClass())) {
-            Optional.ofNullable(((IHasCrudId<?>) value).getId())
-                    .flatMap(FormatUtil::getUUID)
-                    .ifPresentOrElse(
-                            id -> previousValuesById.put(id, value)
-                            , () -> previousValuesWithoutId.add(value)
-                    );
-        } else {
-            previousValuesWithoutId.add(value);
-        }
+        Optional.ofNullable(((IHasCrudId<?>) value).getId())
+                .flatMap(FormatUtil::getUUID)
+                .ifPresentOrElse(
+                        id -> previousValuesById.put(id, value)
+                        , () -> previousValuesWithoutId.add(value)
+                );
     }
 
     private static Optional<Map> getItemAttributes(final Object item, final ObjectMapper mapper) {
