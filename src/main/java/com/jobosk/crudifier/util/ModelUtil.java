@@ -3,7 +3,7 @@ package com.jobosk.crudifier.util;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jobosk.crudifier.entity.IHasIdentifier;
+import com.jobosk.crudifier.entity.IHasCrudId;
 import org.apache.logging.log4j.util.TriConsumer;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 public abstract class ModelUtil {
 
-    public static <Entity extends IHasIdentifier<UUID>, Source> void setFromOne(final Source source, final Entity previous, final Entity current
+    public static <Entity extends IHasCrudId<UUID>, Source> void setFromOne(final Source source, final Entity previous, final Entity current
             , final boolean reverse, final TriConsumer<Entity, Source, Boolean> setter) {
         ModelUtil.setFromOne(
                 previous
@@ -32,7 +32,7 @@ public abstract class ModelUtil {
         );
     }
 
-    private static <Entity extends IHasIdentifier<UUID>> void setFromOne(final Entity previous, final Entity current
+    private static <Entity extends IHasCrudId<UUID>> void setFromOne(final Entity previous, final Entity current
             , final boolean reverse, final Consumer<Entity> previousClear, final Consumer<Entity> currentReverse) {
         Optional.ofNullable(current)
                 .ifPresent(c -> {
@@ -45,17 +45,17 @@ public abstract class ModelUtil {
                 });
     }
 
-    public static <T extends IHasIdentifier<?>> boolean sameIds(final T o1, final T o2) {
+    public static <T extends IHasCrudId<?>> boolean sameIds(final T o1, final T o2) {
         return Optional.ofNullable(o1)
-                .map(IHasIdentifier::getId)
+                .map(IHasCrudId::getId)
                 .flatMap(id1 -> Optional.ofNullable(o2)
-                        .map(IHasIdentifier::getId)
+                        .map(IHasCrudId::getId)
                         .map(id2 -> id2.equals(id1))
                 )
                 .orElse(false);
     }
 
-    public static <Entity extends IHasIdentifier<UUID>, Source> void setFromMany(final Source source, final Entity current
+    public static <Entity extends IHasCrudId<UUID>, Source> void setFromMany(final Source source, final Entity current
             , final boolean reverse, final TriConsumer<Entity, Source, Boolean> setter) {
         ModelUtil.setFromMany(
                 current
@@ -64,7 +64,7 @@ public abstract class ModelUtil {
         );
     }
 
-    private static <Entity extends IHasIdentifier<UUID>> void setFromMany(final Entity current, final boolean reverse
+    private static <Entity extends IHasCrudId<UUID>> void setFromMany(final Entity current, final boolean reverse
             , final Consumer<Entity> currentReverse) {
         Optional.ofNullable(current)
                 .ifPresent(c -> {
@@ -101,7 +101,7 @@ public abstract class ModelUtil {
                 .collect(Collectors.toList());
     }
 
-    public static <T extends IHasIdentifier<UUID>, R> void setTransientFieldsInArray(final List<T> currentItems
+    public static <T extends IHasCrudId<UUID>, R> void setTransientFieldsInArray(final List<T> currentItems
             , final Map<String, Object> attributes, final String arrayField, final String transientField
             , final Function<UUID, Optional<R>> getter, final BiConsumer<T, R> setter
             , final Consumer<T> reflexiveAction, final String recursionField
@@ -123,7 +123,7 @@ public abstract class ModelUtil {
         }
     }
 
-    public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
+    public static <T extends IHasCrudId<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
             , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final Class<T> type
             , final Supplier<T> builder, final ObjectMapper mapper) {
@@ -131,7 +131,7 @@ public abstract class ModelUtil {
                 , null, null, null, type, builder, mapper);
     }
 
-    public static <T extends IHasIdentifier<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
+    public static <T extends IHasCrudId<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
             , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
             , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter, final Class<T> type
@@ -167,7 +167,7 @@ public abstract class ModelUtil {
         return result;
     }
 
-    private static <T extends IHasIdentifier<UUID>, R> Optional<T> updateTransientFields(final Map<String, Object> map
+    private static <T extends IHasCrudId<UUID>, R> Optional<T> updateTransientFields(final Map<String, Object> map
             , final Map<UUID, T> currentItems, final String transientField, final Function<UUID, Optional<R>> getter
             , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
             , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter
@@ -231,7 +231,7 @@ public abstract class ModelUtil {
                 });
     }
 
-    public static <T extends IHasIdentifier<UUID>> T getOrCreateItem(final Object itemId, final Map<UUID, T> currentItems
+    public static <T extends IHasCrudId<UUID>> T getOrCreateItem(final Object itemId, final Map<UUID, T> currentItems
             , final Class<T> type, final Supplier<T> builder, final Consumer<T> reflexiveAction) {
         return Optional.ofNullable(itemId)
                 .flatMap(FormatUtil::getUUID)
@@ -266,15 +266,12 @@ public abstract class ModelUtil {
         ModelUtil.getValue(value, propertyDescriptor.getPropertyType(), mapper)
                 .ifPresent(convertedValue -> {
                     if (convertedValue instanceof Collection) {
-                        final Collection<?> collection = (Collection<?>) convertedValue;
-                        final Class type = (Class) ModelUtil.getItemType(propertyDescriptor);
-                        final Collection<Object> collectionValues = ModelUtil.copyCollectionValues(
-                                collection
+                        itemWrapper.setPropertyValue(key, ModelUtil.copyCollectionValues(
+                                (Collection<?>) convertedValue
                                 , itemWrapper.getPropertyValue(key)
-                                , type
+                                , (Class<?>) ModelUtil.getItemType(propertyDescriptor)
                                 , mapper
-                        );
-                        itemWrapper.setPropertyValue(key, collectionValues);
+                        ));
                     } else {
                         itemWrapper.setPropertyValue(key, convertedValue);
                     }
@@ -283,10 +280,10 @@ public abstract class ModelUtil {
 
     private static <T> Collection<T> copyCollectionValues(final Collection<?> values
             , final Object propertyValue, final Class<T> type, final ObjectMapper mapper) {
+        final List<T> result = new ArrayList<>();
         final Map<UUID, T> previousValuesById = new HashMap<>();
         final List<T> previousValuesWithoutId = new ArrayList<>();
-        ModelUtil.groupById(propertyValue, type, mapper, previousValuesById, previousValuesWithoutId);
-        final List<T> result = new ArrayList<>();
+        ModelUtil.groupById(propertyValue, type, previousValuesById, previousValuesWithoutId);
         for (final Object value : values) {
             ModelUtil.getItemAttributes(value, mapper)
                     .flatMap(collectionItem -> FormatUtil.getUUID(collectionItem.get("id"))
@@ -308,26 +305,30 @@ public abstract class ModelUtil {
         return result;
     }
 
-    private static <T> void groupById(final Object propertyValue, final Class<T> type, final ObjectMapper mapper
+    private static <T> void groupById(final Object propertyValue, final Class<T> type
             , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
         Optional.ofNullable(propertyValue)
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
-                .ifPresent(values -> values.forEach(value -> ModelUtil.groupByIds(
-                        type.cast(value)
-                        , mapper
-                        , previousValuesById
-                        , previousValuesWithoutId
-                )));
+                .ifPresent(values -> {
+                    for (final Object value : values) {
+                        ModelUtil.groupByIds(type.cast(value), previousValuesById, previousValuesWithoutId);
+                    }
+                });
     }
 
-    private static <T> void groupByIds(final T value, final ObjectMapper mapper
-            , final Map<UUID, T> previousValuesById, final List<T> previousValuesWithoutId) {
-        ModelUtil.getId(value, mapper)
-                .ifPresentOrElse(
-                        id -> previousValuesById.put(id, value)
-                        , () -> previousValuesWithoutId.add(value)
-                );
+    private static <T> void groupByIds(final T value, final Map<UUID, T> previousValuesById
+            , final List<T> previousValuesWithoutId) {
+        if (IHasCrudId.class.isAssignableFrom(value.getClass())) {
+            Optional.ofNullable(IHasCrudId.class.cast(value).getId())
+                    .flatMap(FormatUtil::getUUID)
+                    .ifPresentOrElse(
+                            id -> previousValuesById.put(id, value)
+                            , () -> previousValuesWithoutId.add(value)
+                    );
+        } else {
+            previousValuesWithoutId.add(value);
+        }
     }
 
     private static Optional<Map> getItemAttributes(final Object item, final ObjectMapper mapper) {
@@ -338,8 +339,8 @@ public abstract class ModelUtil {
     }
 
     private static Optional<UUID> getId(final Object currentValue, final ObjectMapper mapper) {
-        if (currentValue instanceof IHasIdentifier) {
-            return FormatUtil.getUUID(((IHasIdentifier<?>) currentValue).getId());
+        if (currentValue instanceof IHasCrudId) {
+            return FormatUtil.getUUID(((IHasCrudId<?>) currentValue).getId());
         }
         try {
             final Map<?, ?> map = mapper.convertValue(currentValue, Map.class);
@@ -350,7 +351,8 @@ public abstract class ModelUtil {
         }
     }
 
-    private static <T> Optional<T> getValue(final Object value, final Class<T> propertyType, final ObjectMapper mapper) {
+    private static <T> Optional<T> getValue(final Object value, final Class<T> propertyType,
+                                            final ObjectMapper mapper) {
         try {
             return Optional.of(mapper.convertValue(value, propertyType));
         } catch (final Exception e) {
@@ -363,7 +365,8 @@ public abstract class ModelUtil {
                 .getActualTypeArguments()[0];
     }
 
-    private static <T> Optional<Collection<T>> convertCollection(final Collection<T> convertedValue, final Class<T> itemType
+    private static <T> Optional<Collection<T>> convertCollection(final Collection<T> convertedValue,
+                                                                 final Class<T> itemType
             , final ObjectMapper mapper) {
         try {
             final Collection<T> convertedCollection = convertedValue.getClass().getDeclaredConstructor().newInstance();

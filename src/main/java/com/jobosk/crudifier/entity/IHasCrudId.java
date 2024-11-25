@@ -1,6 +1,6 @@
 package com.jobosk.crudifier.entity;
 
-public interface IHasIdentifier<ID> {
+public interface IHasCrudId<ID> {
 
     ID getId();
 }
