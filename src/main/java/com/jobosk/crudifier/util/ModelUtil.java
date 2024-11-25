@@ -320,7 +320,7 @@ public abstract class ModelUtil {
     private static <T> void groupByIds(final T value, final Map<UUID, T> previousValuesById
             , final List<T> previousValuesWithoutId) {
         if (IHasCrudId.class.isAssignableFrom(value.getClass())) {
-            Optional.ofNullable(IHasCrudId.class.cast(value).getId())
+            Optional.ofNullable(((IHasCrudId<?>) value).getId())
                     .flatMap(FormatUtil::getUUID)
                     .ifPresentOrElse(
                             id -> previousValuesById.put(id, value)
