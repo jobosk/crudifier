@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobosk.crudifier.annotation.FindExcluded;
 import com.jobosk.crudifier.constant.CrudConstant;
 import com.jobosk.crudifier.entity.ICrudEntity;
+import com.jobosk.crudifier.exception.CrudException;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.util.ModelUtil;
+import com.jobosk.crudifier.validator.CrudEntityValidator;
 import org.hibernate.query.criteria.internal.expression.ExpressionImpl;
 import org.hibernate.query.criteria.internal.expression.function.CastFunction;
 import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
@@ -468,21 +470,37 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     @Override
     @Transactional
-    public Entity create(final Entity entity) {
-        if (entity instanceof ICrudEntity) {
-            ((ICrudEntity<?>) entity).setId(null);
-        }
-        return update(entity);
+    public Entity create(final Entity entity) throws CrudException {
+        return create(entity, null);
     }
 
     @Override
     @Transactional
-    public Entity update(final Entity entity, final Map<String, Object> fields) {
-        ModelUtil.copyProperties(entity, fields, mapper);
-        return update(entity);
+    public Entity create(final Entity entity, final CrudEntityValidator<Entity> validator) throws CrudException {
+        if (entity instanceof ICrudEntity) {
+            ((ICrudEntity<?>) entity).setId(null);
+        }
+        return update(entity, validator);
     }
 
-    protected Entity update(final Entity entity) {
+    @Override
+    @Transactional
+    public Entity update(final Entity entity, final Map<String, Object> fields) throws CrudException {
+        return update(entity, fields, null);
+    }
+
+    @Override
+    @Transactional
+    public Entity update(final Entity entity, final Map<String, Object> fields
+            , final CrudEntityValidator<Entity> validator) throws CrudException {
+        ModelUtil.copyProperties(entity, fields, mapper);
+        return update(entity, validator);
+    }
+
+    protected Entity update(final Entity entity, final CrudEntityValidator<Entity> validator) throws CrudException {
+        if (validator != null) {
+            validator.accept(entity);
+        }
         return repository.save(entity);
     }
 

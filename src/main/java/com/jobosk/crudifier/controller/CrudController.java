@@ -1,6 +1,7 @@
 package com.jobosk.crudifier.controller;
 
 import com.jobosk.crudifier.constant.CrudConstant;
+import com.jobosk.crudifier.exception.CrudException;
 import com.jobosk.crudifier.service.ICrudService;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -20,9 +21,13 @@ public abstract class CrudController<Entity, Id> {
 
     public abstract Collection<Entity> findAll(Map<String, String> parameters, HttpServletResponse response);
 
-    public abstract Entity create(@Valid Entity entity);
+    public Entity create(@Valid Entity entity) throws CrudException {
+        throw new CrudException("unimplemented_method");
+    }
 
-    public abstract Entity update(@Valid Entity entity, Map<String, Object> fields);
+    public Entity update(@Valid Entity entity, Map<String, Object> fields) throws CrudException {
+        throw new CrudException("unimplemented_method");
+    }
 
     public abstract boolean delete(Id id);
 }

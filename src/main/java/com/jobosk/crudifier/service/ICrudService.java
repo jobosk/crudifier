@@ -1,5 +1,7 @@
 package com.jobosk.crudifier.service;
 
+import com.jobosk.crudifier.exception.CrudException;
+import com.jobosk.crudifier.validator.CrudEntityValidator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -22,9 +24,13 @@ public interface ICrudService<Entity, Id> {
 
     Optional<Entity> find(Id id);
 
-    Entity create(Entity obj);
+    Entity create(Entity entity) throws CrudException;
 
-    Entity update(Entity obj, Map<String, Object> fields);
+    Entity create(Entity entity, CrudEntityValidator<Entity> validator) throws CrudException;
+
+    Entity update(Entity entity, Map<String, Object> fields) throws CrudException;
+
+    Entity update(Entity entity, Map<String, Object> fields, CrudEntityValidator<Entity> validator) throws CrudException;
 
     boolean delete(Id id);
 }

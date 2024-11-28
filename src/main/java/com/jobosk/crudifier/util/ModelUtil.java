@@ -3,7 +3,9 @@ package com.jobosk.crudifier.util;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobosk.crudifier.dto.ITransientFieldAction;
 import com.jobosk.crudifier.entity.IHasCrudId;
+import com.jobosk.crudifier.exception.CrudException;
 import org.apache.logging.log4j.util.TriConsumer;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
@@ -13,6 +15,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -101,12 +104,33 @@ public abstract class ModelUtil {
                 .collect(Collectors.toList());
     }
 
-    public static <T extends IHasCrudId<UUID>, R> void setTransientFieldsInArray(final List<T> currentItems
-            , final Map<String, Object> attributes, final String arrayField, final String transientField
-            , final Function<UUID, Optional<R>> getter, final BiConsumer<T, R> setter
-            , final Consumer<T> reflexiveAction, final String recursionField
-            , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter
-            , final Class<T> type, final Supplier<T> builder, final ObjectMapper mapper) {
+    public static <T extends IHasCrudId<UUID>> void setTransientFieldsInObject(
+            final T currentItem
+            , final Map<String, Object> attributes
+            , final Collection<ITransientFieldAction> actions
+    ) {
+        actions.forEach(action -> applyAction(
+                attributes
+                , action.getTransientField()
+                , action.getGetter()
+                , action.getSetter()
+                , () -> currentItem
+        ));
+    }
+
+    public static <T extends IHasCrudId<UUID>> void setTransientFieldsInArray(
+            final List<T> currentItems
+            , final Map<String, Object> attributes
+            , final String arrayField
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final String recursionField
+            , final Function<T, List<T>> recursiveGetter
+            , final BiConsumer<T, T> recursiveSetter
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final ObjectMapper mapper
+    ) {
         final Collection<?> items = Optional.ofNullable(attributes.remove(arrayField))
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
@@ -114,39 +138,35 @@ public abstract class ModelUtil {
         if (items.isEmpty() && !currentItems.isEmpty()) {
             attributes.put(arrayField, items);
         } else {
-            final List<Object> result = ModelUtil.setTransientFields(currentItems, items, transientField
-                    , getter, setter, reflexiveAction, recursionField, recursiveGetter, recursiveSetter
-                    , type, builder, mapper);
+            final List<Object> result = ModelUtil.setTransientFieldsInArray(currentItems, items, actions, reflexiveAction
+                    , recursionField, recursiveGetter, recursiveSetter, type, builder, mapper);
             if (!result.isEmpty()) {
                 attributes.put(arrayField, result);
             }
         }
     }
 
-    public static <T extends IHasCrudId<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
-            , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
-            , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final Class<T> type
-            , final Supplier<T> builder, final ObjectMapper mapper) {
-        return ModelUtil.setTransientFields(currentItems, newItems, transientField, getter, setter, reflexiveAction
-                , null, null, null, type, builder, mapper);
-    }
-
-    public static <T extends IHasCrudId<UUID>, R> List<Object> setTransientFields(final List<T> currentItems
-            , final Collection<?> newItems, final String transientField, final Function<UUID, Optional<R>> getter
-            , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
-            , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter, final Class<T> type
-            , final Supplier<T> builder, final ObjectMapper mapper) {
+    public static <T extends IHasCrudId<UUID>> List<Object> setTransientFieldsInArray(
+            final List<T> currentItems
+            , final Collection<?> newItems
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final String recursionField
+            , final Function<T, List<T>> recursiveGetter
+            , final BiConsumer<T, T> recursiveSetter
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final ObjectMapper mapper
+    ) {
         final Map<UUID, T> currentItemsById = currentItems.stream()
                 .collect(Collectors.toMap(T::getId, i -> i));
         final List<Object> result = new ArrayList<>();
         for (final Object newItem : newItems) {
             if (newItem instanceof Map) {
-                ModelUtil.updateTransientFields(
+                ModelUtil.updateTransientFieldsRecursive(
                         (Map<String, Object>) newItem
                         , currentItemsById
-                        , transientField
-                        , getter
-                        , setter
+                        , actions
                         , reflexiveAction
                         , recursionField
                         , recursiveGetter
@@ -167,72 +187,53 @@ public abstract class ModelUtil {
         return result;
     }
 
-    private static <T extends IHasCrudId<UUID>, R> Optional<T> updateTransientFields(final Map<String, Object> map
-            , final Map<UUID, T> currentItems, final String transientField, final Function<UUID, Optional<R>> getter
-            , final BiConsumer<T, R> setter, final Consumer<T> reflexiveAction, final String recursionField
-            , final Function<T, List<T>> recursiveGetter, final BiConsumer<T, T> recursiveSetter
-            , final Class<T> type, final Supplier<T> builder, final ObjectMapper mapper) {
-        return Optional.ofNullable(map.remove(transientField))
-                .flatMap(FormatUtil::getUUID)
-                .flatMap(getter)
-                .map(product -> {
-                    final T item = ModelUtil.getOrCreateItem(map.remove("id"), currentItems, type, builder, reflexiveAction);
-                    setter.accept(item, product);
-                    return item;
-                })
-                .map(i -> {
-                    if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
-                        ModelUtil.setTransientFieldsInArray(
-                                recursiveGetter.apply(i)
-                                , map
-                                , recursionField
-                                , transientField
-                                , getter
-                                , setter
-                                , c -> recursiveSetter.accept(i, c)
-                                , recursionField
-                                , recursiveGetter
-                                , recursiveSetter
-                                , type
-                                , builder
-                                , mapper
-                        );
-                        /*
-                        final Collection<?> children = Optional.ofNullable(map.remove(recursionField))
-                                .filter(Collection.class::isInstance)
-                                .map(Collection.class::cast)
-                                .orElse(new ArrayList<>());
-                        final List<T> currentChildren = recursiveGetter.apply(i);
-                        if (children.isEmpty() && !currentChildren.isEmpty()) {
-                            map.put(recursionField, children);
-                        } else {
-                            final List<Object> sameProductChildren = setTransientFields(
-                                    currentChildren
-                                    , children
-                                    , transientField
-                                    , getter
-                                    , setter
-                                    , c -> recursiveSetter.accept(i, c)
-                                    , recursionField
-                                    , recursiveGetter
-                                    , recursiveSetter
+    public static <T extends IHasCrudId<UUID>, R> Optional<T> updateTransientFields(
+            final Map<String, Object> map
+            , final Map<UUID, T> currentItems
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final Class<T> type
+            , final Supplier<T> builder
+    ) {
+        final AtomicReference<T> result = new AtomicReference<>();
+        for (final ITransientFieldAction<T, R> action : actions) {
+            applyAction(
+                    map
+                    , action.getTransientField()
+                    , action.getGetter()
+                    , action.getSetter()
+                    , () -> Optional.ofNullable(result.get())
+                            .orElseGet(() -> ModelUtil.getOrCreateItem(
+                                    map.remove("id")
+                                    , currentItems
                                     , type
                                     , builder
-                                    , mapper
-                            );
-                            if (!sameProductChildren.isEmpty()) {
-                                map.put(recursionField, sameProductChildren);
-                            }
-                        }
-                        */
-                    }
-                    ModelUtil.copyProperties(i, map, mapper);
-                    return i;
+                                    , reflexiveAction
+                            ))
+            ).ifPresent(result::set);
+        }
+        return Optional.ofNullable(result.get());
+    }
+
+    private static <T extends IHasCrudId<UUID>, R> Optional<T> applyAction(final Map<String, Object> map
+            , final String transientField, final Function<Object, Optional<R>> getter, final BiConsumer<T, R> setter
+            , final Supplier<T> itemGetter) {
+        return Optional.ofNullable(map.remove(transientField))
+                .flatMap(getter)
+                .map(v -> {
+                    final T item = itemGetter.get();
+                    setter.accept(item, v);
+                    return item;
                 });
     }
 
-    public static <T extends IHasCrudId<UUID>> T getOrCreateItem(final Object itemId, final Map<UUID, T> currentItems
-            , final Class<T> type, final Supplier<T> builder, final Consumer<T> reflexiveAction) {
+    public static <T extends IHasCrudId<UUID>> T getOrCreateItem(
+            final Object itemId
+            , final Map<UUID, T> currentItems
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final Consumer<T> reflexiveAction
+    ) {
         return Optional.ofNullable(itemId)
                 .flatMap(FormatUtil::getUUID)
                 .map(currentItems::get)
@@ -241,6 +242,40 @@ public abstract class ModelUtil {
                     final T item = builder.get();
                     reflexiveAction.accept(item);
                     return item;
+                });
+    }
+
+    public static <T extends IHasCrudId<UUID>> Optional<T> updateTransientFieldsRecursive(
+            final Map<String, Object> map
+            , final Map<UUID, T> currentItems
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final String recursionField
+            , final Function<T, List<T>> recursiveGetter
+            , final BiConsumer<T, T> recursiveSetter
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final ObjectMapper mapper
+    ) {
+        return updateTransientFields(map, currentItems, actions, reflexiveAction, type, builder)
+                .map(r -> {
+                    if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
+                        ModelUtil.setTransientFieldsInArray(
+                                recursiveGetter.apply(r)
+                                , map
+                                , recursionField
+                                , actions
+                                , c -> recursiveSetter.accept(r, c)
+                                , recursionField
+                                , recursiveGetter
+                                , recursiveSetter
+                                , type
+                                , builder
+                                , mapper
+                        );
+                    }
+                    ModelUtil.copyProperties(r, map, mapper);
+                    return r;
                 });
     }
 
@@ -375,6 +410,17 @@ public abstract class ModelUtil {
             return Optional.of(convertedValue);
         } catch (final Exception e) {
             return Optional.empty();
+        }
+    }
+
+    public static <T extends IHasCrudId<UUID>> void checkRecursion(final T entity, Function<T, Collection<T>> getter
+            , final Set<UUID> visited, final String exceptionCode) throws CrudException {
+        if (visited.contains(entity.getId())) {
+            throw new CrudException(exceptionCode, List.of(entity.getId()));
+        }
+        visited.add(entity.getId());
+        for (final T e : getter.apply(entity)) {
+            checkRecursion(e, getter, visited, exceptionCode);
         }
     }
 }
