@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-public interface IHasChild<ID> extends ICrudEntity<ID> {
+public interface IHasChild<ID> extends IHasThis, IHasCrudId<ID> {
 
     default IHasChild<ID> getMeAsParent() {
         return (IHasChild<ID>) getThis();

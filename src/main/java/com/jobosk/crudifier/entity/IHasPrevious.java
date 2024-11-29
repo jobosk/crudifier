@@ -6,7 +6,7 @@ import org.springframework.beans.PropertyAccessorFactory;
 
 import java.util.Optional;
 
-public interface IHasPrevious<ID> extends ICrudEntity<ID> {
+public interface IHasPrevious<ID> extends IHasThis, IHasCrudId<ID> {
 
     default IHasPrevious<ID> getMeAsNext() {
         return (IHasPrevious<ID>) getThis();

@@ -6,7 +6,7 @@ import org.springframework.beans.PropertyAccessorFactory;
 
 import java.util.Optional;
 
-public interface IHasParent<ID> extends ICrudEntity<ID> {
+public interface IHasParent<ID> extends IHasThis, IHasCrudId<ID> {
 
     default IHasParent<ID> getMeAsChild() {
         return (IHasParent<ID>) getThis();
