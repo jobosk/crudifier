@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 public abstract class ModelUtil {
 
-    public static <Entity extends IHasCrudId<UUID>, Source> void setFromOne(final Source source, final Entity previous, final Entity current
+    public static <Entity extends IHasCrudId<?>, Source> void setFromOne(final Source source, final Entity previous, final Entity current
             , final boolean reverse, final TriConsumer<Entity, Source, Boolean> setter) {
         ModelUtil.setFromOne(
                 previous
@@ -35,7 +35,7 @@ public abstract class ModelUtil {
         );
     }
 
-    private static <Entity extends IHasCrudId<UUID>> void setFromOne(final Entity previous, final Entity current
+    private static <Entity extends IHasCrudId<?>> void setFromOne(final Entity previous, final Entity current
             , final boolean reverse, final Consumer<Entity> previousClear, final Consumer<Entity> currentReverse) {
         Optional.ofNullable(current)
                 .ifPresent(c -> {
@@ -58,7 +58,7 @@ public abstract class ModelUtil {
                 .orElse(false);
     }
 
-    public static <Entity extends IHasCrudId<UUID>, Source> void setFromMany(final Source source, final Entity current
+    public static <Entity extends IHasCrudId<?>, Source> void setFromMany(final Source source, final Entity current
             , final boolean reverse, final TriConsumer<Entity, Source, Boolean> setter) {
         ModelUtil.setFromMany(
                 current
@@ -67,7 +67,7 @@ public abstract class ModelUtil {
         );
     }
 
-    private static <Entity extends IHasCrudId<UUID>> void setFromMany(final Entity current, final boolean reverse
+    private static <Entity extends IHasCrudId<?>> void setFromMany(final Entity current, final boolean reverse
             , final Consumer<Entity> currentReverse) {
         Optional.ofNullable(current)
                 .ifPresent(c -> {
