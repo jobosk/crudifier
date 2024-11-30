@@ -119,9 +119,9 @@ public abstract class ModelUtil {
     }
 
     public static <T extends IHasCrudId<UUID>> void setTransientFieldsInArray(
-            final List<T> currentItems
-            , final Map<String, Object> attributes
+            final Map<String, Object> attributes
             , final String arrayField
+            , final Function<UUID, T> currentItemGetter
             , final Collection<ITransientFieldAction> actions
             , final Consumer<T> reflexiveAction
             , final String recursionField
@@ -131,27 +131,28 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
-        if (!attributes.containsKey(arrayField)) {
-            return;
-        }
-        final Collection<?> items = Optional.ofNullable(attributes.remove(arrayField))
-                .filter(Collection.class::isInstance)
-                .map(Collection.class::cast)
-                .orElse(new ArrayList<>());
-        if (items.isEmpty() && !currentItems.isEmpty()) {
-            attributes.put(arrayField, items);
-        } else {
-            final List<Object> result = ModelUtil.setTransientFieldsInArray(currentItems, items, actions, reflexiveAction
-                    , recursionField, recursiveGetter, recursiveSetter, type, builder, mapper);
-            if (!result.isEmpty()) {
-                attributes.put(arrayField, result);
-            }
+        if (attributes.containsKey(arrayField)) {
+            attributes.put(
+                    arrayField
+                    , ModelUtil.setTransientFieldsInArray(
+                            attributes.remove(arrayField)
+                            , currentItemGetter
+                            , actions
+                            , reflexiveAction
+                            , recursionField
+                            , recursiveGetter
+                            , recursiveSetter
+                            , type
+                            , builder
+                            , mapper
+                    )
+            );
         }
     }
 
     public static <T extends IHasCrudId<UUID>> List<Object> setTransientFieldsInArray(
-            final List<T> currentItems
-            , final Collection<?> newItems
+            final Object newItems
+            , final Function<UUID, T> currentItemGetter
             , final Collection<ITransientFieldAction> actions
             , final Consumer<T> reflexiveAction
             , final String recursionField
@@ -161,38 +162,41 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
-        final Map<UUID, T> currentItemsById = currentItems.stream()
-                .collect(Collectors.toMap(T::getId, i -> i));
         final List<Object> result = new ArrayList<>();
-        for (final Object newItem : newItems) {
-            if (newItem instanceof Map) {
-                ModelUtil.updateTransientFieldsRecursive(
-                        (Map<String, Object>) newItem
-                        , currentItemsById
-                        , actions
-                        , reflexiveAction
-                        , recursionField
-                        , recursiveGetter
-                        , recursiveSetter
-                        , type
-                        , builder
-                        , mapper
-                ).ifPresentOrElse(
-                        item -> Optional.ofNullable(item.getId())
-                                .ifPresent(result::add)
-                        , () -> result.add(newItem)
-                );
-            } else {
-                FormatUtil.getUUID(newItem)
-                        .ifPresent(result::add);
-            }
-        }
+        Optional.ofNullable(newItems)
+                .filter(Collection.class::isInstance)
+                .map(Collection.class::cast)
+                .ifPresent(collection -> {
+                    for (final Object newItem : collection) {
+                        if (newItem instanceof Map) {
+                            ModelUtil.updateTransientFieldsRecursive(
+                                    (Map<String, Object>) newItem
+                                    , currentItemGetter
+                                    , actions
+                                    , reflexiveAction
+                                    , recursionField
+                                    , recursiveGetter
+                                    , recursiveSetter
+                                    , type
+                                    , builder
+                                    , mapper
+                            ).ifPresentOrElse(
+                                    item -> Optional.ofNullable(item.getId())
+                                            .ifPresent(result::add)
+                                    , () -> result.add(newItem)
+                            );
+                        } else {
+                            FormatUtil.getUUID(newItem)
+                                    .ifPresent(result::add);
+                        }
+                    }
+                });
         return result;
     }
 
     public static <T extends IHasCrudId<UUID>, R> Optional<T> updateTransientFields(
             final Map<String, Object> map
-            , final Map<UUID, T> currentItems
+            , final Function<UUID, T> currentItemGetter
             , final Collection<ITransientFieldAction> actions
             , final Consumer<T> reflexiveAction
             , final Class<T> type
@@ -208,7 +212,7 @@ public abstract class ModelUtil {
                     , () -> Optional.ofNullable(result.get())
                             .orElseGet(() -> ModelUtil.getOrCreateItem(
                                     map.remove("id")
-                                    , currentItems
+                                    , currentItemGetter
                                     , type
                                     , builder
                                     , reflexiveAction
@@ -232,14 +236,14 @@ public abstract class ModelUtil {
 
     public static <T extends IHasCrudId<UUID>> T getOrCreateItem(
             final Object itemId
-            , final Map<UUID, T> currentItems
+            , final Function<UUID, T> currentItemGetter
             , final Class<T> type
             , final Supplier<T> builder
             , final Consumer<T> reflexiveAction
     ) {
         return Optional.ofNullable(itemId)
                 .flatMap(FormatUtil::getUUID)
-                .map(currentItems::get)
+                .map(currentItemGetter)
                 .map(type::cast)
                 .orElseGet(() -> {
                     final T item = builder.get();
@@ -250,7 +254,7 @@ public abstract class ModelUtil {
 
     public static <T extends IHasCrudId<UUID>> Optional<T> updateTransientFieldsRecursive(
             final Map<String, Object> map
-            , final Map<UUID, T> currentItems
+            , final Function<UUID, T> currentItemGetter
             , final Collection<ITransientFieldAction> actions
             , final Consumer<T> reflexiveAction
             , final String recursionField
@@ -260,13 +264,13 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
-        return updateTransientFields(map, currentItems, actions, reflexiveAction, type, builder)
+        return updateTransientFields(map, currentItemGetter, actions, reflexiveAction, type, builder)
                 .map(r -> {
                     if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
                         ModelUtil.setTransientFieldsInArray(
-                                recursiveGetter.apply(r)
-                                , map
+                                map
                                 , recursionField
+                                , groupById(recursiveGetter.apply(r))::get
                                 , actions
                                 , c -> recursiveSetter.accept(r, c)
                                 , recursionField
@@ -280,6 +284,11 @@ public abstract class ModelUtil {
                     ModelUtil.copyProperties(r, map, mapper);
                     return r;
                 });
+    }
+
+    public static <T extends IHasCrudId<UUID>> Map<UUID, T> groupById(final List<T> items) {
+        return items.stream()
+                .collect(Collectors.toMap(T::getId, i -> i));
     }
 
     public static void copyProperties(final Object item, final Map<?, ?> props, final ObjectMapper mapper) {
