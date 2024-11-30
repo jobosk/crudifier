@@ -131,6 +131,9 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
+        if (!attributes.containsKey(arrayField)) {
+            return;
+        }
         final Collection<?> items = Optional.ofNullable(attributes.remove(arrayField))
                 .filter(Collection.class::isInstance)
                 .map(Collection.class::cast)
