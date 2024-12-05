@@ -7,7 +7,7 @@ import com.jobosk.crudifier.entity.ICrudEntity;
 import com.jobosk.crudifier.exception.CrudException;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.util.ModelUtil;
-import com.jobosk.crudifier.validator.CrudEntityValidator;
+import com.jobosk.crudifier.entity.PrePersistAction;
 import org.hibernate.query.criteria.internal.expression.ExpressionImpl;
 import org.hibernate.query.criteria.internal.expression.function.CastFunction;
 import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
@@ -476,11 +476,11 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
 
     @Override
     @Transactional
-    public Entity create(final Entity entity, final CrudEntityValidator<Entity> validator) throws CrudException {
+    public Entity create(final Entity entity, final PrePersistAction<Entity> prePersistAction) throws CrudException {
         if (entity instanceof ICrudEntity) {
             ((ICrudEntity<?>) entity).setId(null);
         }
-        return update(entity, validator);
+        return update(entity, prePersistAction);
     }
 
     @Override
@@ -492,14 +492,14 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     @Override
     @Transactional
     public Entity update(final Entity entity, final Map<String, Object> fields
-            , final CrudEntityValidator<Entity> validator) throws CrudException {
+            , final PrePersistAction<Entity> prePersistAction) throws CrudException {
         ModelUtil.copyProperties(entity, fields, mapper);
-        return update(entity, validator);
+        return update(entity, prePersistAction);
     }
 
-    protected Entity update(final Entity entity, final CrudEntityValidator<Entity> validator) throws CrudException {
-        if (validator != null) {
-            validator.accept(entity);
+    protected Entity update(final Entity entity, final PrePersistAction<Entity> prePersistAction) throws CrudException {
+        if (prePersistAction != null) {
+            prePersistAction.accept(entity);
         }
         return repository.save(entity);
     }
