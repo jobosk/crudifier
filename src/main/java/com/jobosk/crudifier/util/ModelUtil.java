@@ -131,6 +131,42 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
+        ModelUtil.setTransientFieldsInArray(
+                attributes
+                , arrayField
+                , currentItemGetter
+                , actions
+                , reflexiveAction
+                , type
+                , builder
+                , recursionField
+                , recursiveGetter
+                , recursiveSetter
+                , recursiveGetter
+                , recursiveSetter
+                , type
+                , builder
+                , mapper
+        );
+    }
+
+    public static <T extends IHasCrudId<UUID>, R extends IHasCrudId<UUID>> void setTransientFieldsInArray(
+            final Map<String, Object> attributes
+            , final String arrayField
+            , final Function<UUID, T> currentItemGetter
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final String recursionField
+            , final Function<T, List<R>> recursiveGetter
+            , final BiConsumer<T, R> recursiveSetter
+            , final Function<R, List<R>> recursiveChildGetter
+            , final BiConsumer<R, R> recursiveChildSetter
+            , final Class<R> typeRecursive
+            , final Supplier<R> builderRecursive
+            , final ObjectMapper mapper
+    ) {
         if (attributes.containsKey(arrayField)) {
             attributes.put(
                     arrayField
@@ -139,11 +175,15 @@ public abstract class ModelUtil {
                             , currentItemGetter
                             , actions
                             , reflexiveAction
+                            , type
+                            , builder
                             , recursionField
                             , recursiveGetter
                             , recursiveSetter
-                            , type
-                            , builder
+                            , recursiveChildGetter
+                            , recursiveChildSetter
+                            , typeRecursive
+                            , builderRecursive
                             , mapper
                     )
             );
@@ -162,6 +202,40 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
+        return ModelUtil.setTransientFieldsInArray(
+                newItems
+                , currentItemGetter
+                , actions
+                , reflexiveAction
+                , type
+                , builder
+                , recursionField
+                , recursiveGetter
+                , recursiveSetter
+                , recursiveGetter
+                , recursiveSetter
+                , type
+                , builder
+                , mapper
+        );
+    }
+
+    public static <T extends IHasCrudId<UUID>, R extends IHasCrudId<UUID>> List<Object> setTransientFieldsInArray(
+            final Object newItems
+            , final Function<UUID, T> currentItemGetter
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final String recursionField
+            , final Function<T, List<R>> recursiveGetter
+            , final BiConsumer<T, R> recursiveSetter
+            , final Function<R, List<R>> recursiveChildGetter
+            , final BiConsumer<R, R> recursiveChildSetter
+            , final Class<R> typeRecursive
+            , final Supplier<R> builderRecursive
+            , final ObjectMapper mapper
+    ) {
         final List<Object> result = new ArrayList<>();
         Optional.ofNullable(newItems)
                 .filter(Collection.class::isInstance)
@@ -174,11 +248,15 @@ public abstract class ModelUtil {
                                     , currentItemGetter
                                     , actions
                                     , reflexiveAction
+                                    , type
+                                    , builder
                                     , recursionField
                                     , recursiveGetter
                                     , recursiveSetter
-                                    , type
-                                    , builder
+                                    , recursiveChildGetter
+                                    , recursiveChildSetter
+                                    , typeRecursive
+                                    , builderRecursive
                                     , mapper
                             ).ifPresentOrElse(
                                     item -> Optional.ofNullable(item.getId())
@@ -264,6 +342,40 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final ObjectMapper mapper
     ) {
+        return ModelUtil.updateTransientFieldsRecursive(
+                map
+                , currentItemGetter
+                , actions
+                , reflexiveAction
+                , type
+                , builder
+                , recursionField
+                , recursiveGetter
+                , recursiveSetter
+                , recursiveGetter
+                , recursiveSetter
+                , type
+                , builder
+                , mapper
+        );
+    }
+
+    public static <T extends IHasCrudId<UUID>, R extends IHasCrudId<UUID>> Optional<T> updateTransientFieldsRecursive(
+            final Map<String, Object> map
+            , final Function<UUID, T> currentItemGetter
+            , final Collection<ITransientFieldAction> actions
+            , final Consumer<T> reflexiveAction
+            , final Class<T> type
+            , final Supplier<T> builder
+            , final String recursionField
+            , final Function<T, List<R>> recursiveGetter
+            , final BiConsumer<T, R> recursiveSetter
+            , final Function<R, List<R>> recursiveChildGetter
+            , final BiConsumer<R, R> recursiveChildSetter
+            , final Class<R> typeRecursive
+            , final Supplier<R> builderRecursive
+            , final ObjectMapper mapper
+    ) {
         return updateTransientFields(map, currentItemGetter, actions, reflexiveAction, type, builder)
                 .map(r -> {
                     if (recursionField != null && recursiveGetter != null && recursiveSetter != null) {
@@ -273,11 +385,15 @@ public abstract class ModelUtil {
                                 , groupById(recursiveGetter.apply(r))::get
                                 , actions
                                 , c -> recursiveSetter.accept(r, c)
+                                , typeRecursive
+                                , builderRecursive
                                 , recursionField
-                                , recursiveGetter
-                                , recursiveSetter
-                                , type
-                                , builder
+                                , recursiveChildGetter
+                                , recursiveChildSetter
+                                , recursiveChildGetter
+                                , recursiveChildSetter
+                                , typeRecursive
+                                , builderRecursive
                                 , mapper
                         );
                     }
