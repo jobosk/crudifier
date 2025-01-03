@@ -424,21 +424,22 @@ public abstract class ModelUtil {
             , final ObjectMapper mapper) {
         if (value == null) {
             itemWrapper.setPropertyValue(key, null);
+        } else {
+            final PropertyDescriptor propertyDescriptor = itemWrapper.getPropertyDescriptor(key);
+            ModelUtil.getValue(value, propertyDescriptor.getPropertyType(), mapper)
+                    .ifPresent(convertedValue -> {
+                        if (convertedValue instanceof Collection) {
+                            itemWrapper.setPropertyValue(key, ModelUtil.copyCollectionValues(
+                                    (Collection<?>) convertedValue
+                                    , itemWrapper.getPropertyValue(key)
+                                    , (Class<?>) ModelUtil.getItemType(propertyDescriptor)
+                                    , mapper
+                            ));
+                        } else {
+                            itemWrapper.setPropertyValue(key, convertedValue);
+                        }
+                    });
         }
-        final PropertyDescriptor propertyDescriptor = itemWrapper.getPropertyDescriptor(key);
-        ModelUtil.getValue(value, propertyDescriptor.getPropertyType(), mapper)
-                .ifPresent(convertedValue -> {
-                    if (convertedValue instanceof Collection) {
-                        itemWrapper.setPropertyValue(key, ModelUtil.copyCollectionValues(
-                                (Collection<?>) convertedValue
-                                , itemWrapper.getPropertyValue(key)
-                                , (Class<?>) ModelUtil.getItemType(propertyDescriptor)
-                                , mapper
-                        ));
-                    } else {
-                        itemWrapper.setPropertyValue(key, convertedValue);
-                    }
-                });
     }
 
     private static <T> Collection<T> copyCollectionValues(final Collection<?> newValues
