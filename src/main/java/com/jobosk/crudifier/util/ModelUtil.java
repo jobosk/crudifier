@@ -423,7 +423,7 @@ public abstract class ModelUtil {
     private static void copyProperty(final BeanWrapper itemWrapper, final String key, final Object value
             , final ObjectMapper mapper) {
         if (value == null) {
-            return;
+            itemWrapper.setPropertyValue(key, null);
         }
         final PropertyDescriptor propertyDescriptor = itemWrapper.getPropertyDescriptor(key);
         ModelUtil.getValue(value, propertyDescriptor.getPropertyType(), mapper)
@@ -512,8 +512,7 @@ public abstract class ModelUtil {
         }
     }
 
-    private static <T> Optional<T> getValue(final Object value, final Class<T> propertyType,
-                                            final ObjectMapper mapper) {
+    private static <T> Optional<T> getValue(final Object value, final Class<T> propertyType, final ObjectMapper mapper) {
         try {
             return Optional.of(mapper.convertValue(value, propertyType));
         } catch (final Exception e) {
