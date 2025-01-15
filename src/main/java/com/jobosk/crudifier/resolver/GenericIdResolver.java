@@ -20,11 +20,15 @@ public abstract class GenericIdResolver<Entity, Id> implements ObjectIdResolver 
 
     @Override
     public Entity resolveId(final ObjectIdGenerator.IdKey idKey) {
-        final Id id = Optional.ofNullable(idKey)
-                .map(idk -> (Id) idk.key)
-                .orElseThrow(() -> new RuntimeException("Missing ID from key: " + idKey));
+        final Id id = getId(idKey);
         return repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Cannot find entity with ID: " + id));
+    }
+
+    protected Id getId(final ObjectIdGenerator.IdKey idKey) {
+        return Optional.ofNullable(idKey)
+                .map(idk -> (Id) idk.key)
+                .orElseThrow(() -> new RuntimeException("Missing ID from key: " + idKey));
     }
 
     @Override
