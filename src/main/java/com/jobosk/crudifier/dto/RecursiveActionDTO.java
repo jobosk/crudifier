@@ -13,7 +13,7 @@ public class RecursiveActionDTO<T, R> {
     public BiConsumer<T, R> setter;
     public Class<R> type;
     public Supplier<R> builder;
-    public boolean selfRecursive;
+    public RecursiveActionDTO next;
 
     public RecursiveActionDTO(
             final String field
@@ -22,7 +22,7 @@ public class RecursiveActionDTO<T, R> {
             , final BiConsumer<T, R> setter
             , final Class<R> type
             , final Supplier<R> builder
-            , final boolean selfRecursive
+            , final RecursiveActionDTO next
     ) {
         this.field = field;
         this.getter = getter;
@@ -30,6 +30,6 @@ public class RecursiveActionDTO<T, R> {
         this.setter = setter;
         this.type = type;
         this.builder = builder;
-        this.selfRecursive = selfRecursive;
+        this.next = next;
     }
 }

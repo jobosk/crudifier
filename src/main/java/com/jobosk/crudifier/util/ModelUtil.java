@@ -234,15 +234,20 @@ public abstract class ModelUtil {
             , final Supplier<T> builder
             , final Consumer<T> reflexiveAction
     ) {
-        return Optional.ofNullable(itemId)
-                .flatMap(FormatUtil::getUUID)
-                .map(currentItemGetter)
-                .map(type::cast)
+        return getItem(itemId, currentItemGetter, type)
                 .orElseGet(() -> {
                     final T item = builder.get();
                     reflexiveAction.accept(item);
                     return item;
                 });
+    }
+
+    private static <T extends IHasCrudId<UUID>> Optional<T> getItem(final Object itemId
+            , final Function<UUID, T> currentItemGetter, final Class<T> type) {
+        return Optional.ofNullable(itemId)
+                .flatMap(FormatUtil::getUUID)
+                .map(currentItemGetter)
+                .map(type::cast);
     }
 
     public static <T extends IHasCrudId<UUID>, R extends IHasCrudId<UUID>> Optional<T> updateTransientFieldsRecursive(
@@ -255,26 +260,35 @@ public abstract class ModelUtil {
             , final RecursiveActionDTO<T, R> recursiveAction
             , final ObjectMapper mapper
     ) {
-        return updateTransientFields(map, currentItemGetter, actions, reflexiveAction, type, builder)
-                .map(r -> {
-                    if (recursiveAction != null) {
-                        ModelUtil.setTransientFieldsInArray(
-                                map
-                                , recursiveAction.field
-                                , groupById(recursiveAction.getter.apply(r))::get
-                                , recursiveAction.actions
-                                , c -> recursiveAction.setter.accept(r, c)
-                                , recursiveAction.type
-                                , recursiveAction.builder
-                                , recursiveAction.selfRecursive ? recursiveAction : null
-                                , mapper
-                        );
-                    }
-                    if (!map.isEmpty()) {
-                        ModelUtil.copyProperties(r, map, mapper);
-                    }
-                    return r;
-                });
+        Optional<T> result = updateTransientFields(map, currentItemGetter, actions, reflexiveAction, type, builder);
+        if (recursiveAction != null) {
+            final T r = result
+                    .orElseGet(() -> ModelUtil.getOrCreateItem(
+                            map.remove("id")
+                            , currentItemGetter
+                            , type
+                            , builder
+                            , reflexiveAction
+                    ));
+            ModelUtil.setTransientFieldsInArray(
+                    map
+                    , recursiveAction.field
+                    , groupById(recursiveAction.getter.apply(r))::get
+                    , recursiveAction.actions
+                    , c -> recursiveAction.setter.accept(r, c)
+                    , recursiveAction.type
+                    , recursiveAction.builder
+                    , recursiveAction.next
+                    , mapper
+            );
+            result = Optional.of(r);
+        }
+        return result.map(r -> {
+            if (!map.isEmpty()) {
+                ModelUtil.copyProperties(r, map, mapper);
+            }
+            return r;
+        });
     }
 
     public static <T extends IHasCrudId<UUID>> Map<UUID, T> groupById(final List<T> items) {
