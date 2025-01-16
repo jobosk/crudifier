@@ -2,12 +2,13 @@ package com.jobosk.crudifier.controller;
 
 import com.jobosk.crudifier.exception.CrudException;
 import com.jobosk.crudifier.service.ICrudService;
+import org.springframework.http.HttpStatus;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public abstract class CrudController<Entity, Id> {
 
@@ -17,8 +18,13 @@ public abstract class CrudController<Entity, Id> {
         this.service = service;
     }
 
-    public Optional<Entity> findOne(Id id) throws CrudException {
-        return service.find(id);
+    public Entity findOne(Id id) throws CrudException {
+        return service.find(id)
+                .orElseThrow(() -> new CrudException(
+                        HttpStatus.NOT_FOUND
+                        , "missing_id"
+                        , List.of(id)
+                ));
     }
 
     public Collection<Entity> findAll(Map<String, String> parameters, HttpServletResponse response) throws CrudException {
