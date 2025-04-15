@@ -273,6 +273,7 @@ public abstract class ModelUtil {
 
     public static <T extends IHasCrudId<UUID>> Map<UUID, T> groupById(final List<T> items) {
         return items.stream()
+                .filter(item -> Optional.ofNullable(item.getId()).isPresent())
                 .collect(Collectors.toMap(T::getId, i -> i));
     }
 
