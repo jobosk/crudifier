@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobosk.crudifier.annotation.FindExcluded;
 import com.jobosk.crudifier.constant.CrudConstant;
 import com.jobosk.crudifier.entity.ICrudEntity;
+import com.jobosk.crudifier.entity.PrePersistAction;
 import com.jobosk.crudifier.exception.CrudException;
 import com.jobosk.crudifier.repository.GenericRepository;
 import com.jobosk.crudifier.util.ModelUtil;
-import com.jobosk.crudifier.entity.PrePersistAction;
 import org.hibernate.query.criteria.internal.expression.ExpressionImpl;
 import org.hibernate.query.criteria.internal.expression.function.CastFunction;
 import org.hibernate.query.criteria.internal.path.ListAttributeJoin;
@@ -469,13 +469,13 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = CrudException.class)
     public Entity create(final Entity entity) throws CrudException {
         return create(entity, null);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = CrudException.class)
     public Entity create(final Entity entity, final PrePersistAction<Entity> prePersistAction) throws CrudException {
         if (entity instanceof ICrudEntity) {
             ((ICrudEntity<?>) entity).setId(null);
@@ -484,13 +484,13 @@ public abstract class CrudService<Entity, Id> implements ICrudService<Entity, Id
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = CrudException.class)
     public Entity update(final Entity entity, final Map<String, Object> fields) throws CrudException {
         return update(entity, fields, null);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = CrudException.class)
     public Entity update(final Entity entity, final Map<String, Object> fields
             , final PrePersistAction<Entity> prePersistAction) throws CrudException {
         ModelUtil.copyProperties(entity, fields, mapper);
